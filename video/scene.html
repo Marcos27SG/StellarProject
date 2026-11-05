@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pacta intro video</title>
+<link rel="stylesheet" href="assets/fonts.css">
+<style>
+  html, body { margin: 0; background: #1d1913; color: #f2ede4; font-family: Geist, system-ui, sans-serif; }
+  #wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; }
+  canvas { display: block; max-width: 100%; max-height: 78vh; background: #f7f4ee; border-radius: 6px; }
+  #ui { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; width: min(100%, 960px); font-size: 14px; }
+  #ui input[type=range] { flex: 1; min-width: 160px; }
+  #ui button, #ui a { background: #f7f4ee; color: #1d1913; border: 0; border-radius: 999px; padding: 6px 14px; font: inherit; cursor: pointer; text-decoration: none; }
+  #time { font-variant-numeric: tabular-nums; min-width: 92px; }
+  body.render #wrap { padding: 0; }
+  body.render canvas { max-width: none; max-height: none; border-radius: 0; }
+  body.render #ui { display: none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="ui">
+    <button id="play">Play</button>
+    <input id="scrub" type="range" min="0" max="1000" value="0" step="1">
+    <span id="time">0.00 s</span>
+    <a id="swapFormat" href="#">9:16</a>
+    <a id="swapLang" href="#">EN</a>
+  </div>
+  <audio id="audio" preload="auto"></audio>
+</div>
+<script src="scene.js"></script>
+</body>
+</html>

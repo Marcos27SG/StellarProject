@@ -1,0 +1,247 @@
+@import "tailwindcss";
+
+/*
+  Pacta design tokens. The palette and its rules are documented in app/UI.md ("Color").
+
+  - One primary (brand green), one accent (amber), a warm neutral scale, four semantic colors.
+  - Components use these names only (bg-surface, text-ink-2, text-warning, bg-danger-soft…), never raw
+    palette classes or hex values, so dark mode and re-theming happen here.
+  - Every text pair passes WCAG AA (4.5:1) and every control border, icon and chart fill passes 3:1,
+    in light and dark. Re-check with the script quoted in UI.md after any change.
+  - `.theme-light` forces the light values on a subtree (the printed poster, the voucher QR).
+*/
+
+:root,
+.theme-light {
+  /* Neutrals: warm paper, tinted toward the brand's amber so it never looks clinical. */
+  --bg: #f7f4ee;
+  --surface: #ffffff;
+  --surface-2: #f1ece3;
+  --line: #e6dfd3; /* decorative dividers only */
+  --line-strong: #8e8679; /* borders that identify a control: 3:1 */
+  --ink: #1d1913;
+  --ink-2: #5b544b;
+  --ink-3: #6b6459;
+
+  /* Primary: the green from the logo. Buttons, links, focus, progress. */
+  --brand: #1e6b47;
+  --brand-hover: #175638;
+  --brand-soft: #e4f0e9;
+  --brand-ink: #ffffff;
+
+  /* Accent: amber from the video. Stars, streaks, small highlights. Never body text. */
+  --accent: #a87406;
+  --accent-soft: #faf0d9;
+
+  /* Semantic. Always paired with an icon and a word. */
+  --success: #1e6b47;
+  --success-soft: #e4f0e9;
+  --warning: #8a5300;
+  --warning-soft: #fbefd9;
+  --danger: #b4352a;
+  --danger-soft: #fbe8e5;
+  --info: #24609e;
+  --info-soft: #e2ecf8;
+
+  /* Transparency chart: one-hue ordinal ramp + a neutral for refunds. */
+  --seg-delivered: #1e6b47;
+  --seg-delivered-ink: #ffffff;
+  --seg-pending: #5fae84;
+  --seg-pending-ink: #14120f;
+  --seg-todo: #b9dec8;
+  --seg-todo-ink: #14120f;
+  --seg-refunded: #d6d0c6;
+  --seg-refunded-ink: #14120f;
+
+  --scrim: rgb(20 18 15 / 0.45);
+  --elev-card: 0 1px 2px rgb(29 25 19 / 0.05);
+  --elev-lift: 0 2px 4px rgb(29 25 19 / 0.06), 0 12px 32px rgb(29 25 19 / 0.1);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14120f;
+    --surface: #1c1a16;
+    --surface-2: #26231e;
+    --line: #34302a;
+    --line-strong: #7a7367;
+    --ink: #f2ede4;
+    --ink-2: #bdb5a8;
+    --ink-3: #a69e92;
+
+    --brand: #4fb985;
+    --brand-hover: #67c899;
+    --brand-soft: #1b3226;
+    --brand-ink: #0b1a12;
+
+    --accent: #e8b44e;
+    --accent-soft: #3a2e14;
+
+    --success: #5cc490;
+    --success-soft: #1b3226;
+    --warning: #e8ad52;
+    --warning-soft: #3a2b14;
+    --danger: #f08072;
+    --danger-soft: #3e1d19;
+    --info: #74abe9;
+    --info-soft: #172a40;
+
+    --seg-delivered: #5cc490;
+    --seg-delivered-ink: #14120f;
+    --seg-pending: #2f7d56;
+    --seg-pending-ink: #ffffff;
+    --seg-todo: #1f4a37;
+    --seg-todo-ink: #ffffff;
+    --seg-refunded: #4a453d;
+    --seg-refunded-ink: #ffffff;
+
+    --scrim: rgb(0 0 0 / 0.6);
+    --elev-card: 0 1px 2px rgb(0 0 0 / 0.3);
+    --elev-lift: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px rgb(0 0 0 / 0.4);
+
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-scrim: var(--scrim);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-fraunces);
+
+  --shadow-card: var(--elev-card);
+  --shadow-lift: var(--elev-lift);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Element defaults live in the base layer and component classes in the components layer, so a
+   utility class on an element (w-16, border-0, text-danger…) always wins without "!". */
+
+@layer base {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    @apply min-h-11 rounded-xl border border-line-strong bg-surface px-3 py-2 text-base text-ink outline-none placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand/30 sm:text-sm;
+  }
+  input[aria-invalid="true"],
+  select[aria-invalid="true"],
+  textarea[aria-invalid="true"] {
+    @apply border-danger;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* ------------------------------------------------------------------ type scale
+     Hierarchy comes from size and weight first. Three heading levels, two body sizes (base, sm);
+     text-xs only for pills and chart labels. */
+
+  .h-page {
+    @apply font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl;
+  }
+  .h-section {
+    @apply font-display text-xl leading-snug font-semibold;
+  }
+  .h-sub {
+    @apply text-base font-semibold;
+  }
+
+  /* ------------------------------------------------------------------ base controls
+     Radii: rounded-full (pills, chips, icon buttons), rounded-xl (controls, notices, inner boxes),
+     rounded-2xl (cards, dialogs, media). */
+
+  .btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-hover;
+  }
+  .btn-secondary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line-strong bg-surface px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface-2;
+  }
+  .btn-danger {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-danger px-4 py-2 text-sm font-semibold text-surface transition-colors hover:opacity-90;
+  }
+  .btn-ghost {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink;
+  }
+  .btn-sm {
+    @apply min-h-9 px-3 py-1.5;
+  }
+  .btn-lg {
+    @apply min-h-14 px-6 text-base;
+  }
+  /* Disabled: neutral fill instead of a faded brand, so the label keeps 4.5:1. */
+  .btn:disabled,
+  .btn-secondary:disabled,
+  .btn-danger:disabled,
+  .btn[aria-disabled="true"] {
+    @apply cursor-not-allowed border-transparent bg-surface-2 text-ink-3 hover:bg-surface-2;
+  }
+
+  .link {
+    @apply font-medium text-brand underline underline-offset-2 hover:no-underline;
+  }
+
+  .card {
+    @apply rounded-2xl border border-line bg-surface shadow-card;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media print {
+  body {
+    background: transparent;
+  }
+  @page {
+    margin: 14mm;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

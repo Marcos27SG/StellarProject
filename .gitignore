@@ -1,0 +1,23 @@
+# Rust
+target
+test_snapshots
+
+# Stellar CLI local settings (contain keys/aliases; never commit)
+.soroban
+.stellar
+
+# Node / Next.js
+node_modules
+.next
+out
+*.tsbuildinfo
+next-env.d.ts
+
+# Env files (secrets)
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
