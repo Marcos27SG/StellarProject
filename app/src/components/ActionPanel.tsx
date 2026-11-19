@@ -46,10 +46,13 @@ export function ActionList({
   const tx = useAction();
   const [open, setOpen] = useState<Action | null>(null);
   const [ran, setRan] = useState<Action | null>(null);
-  if (actions.length === 0) return null;
+  // The last action can disappear while its dialog shows the result (after rating, "Calificar" goes
+  // away): keep the dialog until it is closed, so the outcome is seen.
+  // (Same tree position, so the dialog keeps its transaction state.)
+  if (actions.length === 0 && !open) return null;
 
   const [first, ...rest] = actions;
-  const primary = first.tone === "primary" && !first.disabled ? first : null;
+  const primary = first && first.tone === "primary" && !first.disabled ? first : null;
   const others = primary ? rest : actions;
 
   const click = (a: Action, isPrimary: boolean) => {
