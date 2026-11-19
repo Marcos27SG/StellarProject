@@ -111,7 +111,7 @@ export default function MyVouchersPage() {
             <span>
               Tienes <Money amount={protectedAmount} size="md" showBs={false} /> en custodia, esperando entregas.
               {stats.data && stats.data.campaigns_received > 0 && (
-                <> Ya recibiste de {stats.data.campaigns_received} {stats.data.campaigns_received === 1 ? "productor" : "productores"} locales.</>
+                <> Ya recibiste lo de {stats.data.campaigns_received} {stats.data.campaigns_received === 1 ? "preventa" : "preventas"} de productores locales.</>
               )}
             </span>
           </p>

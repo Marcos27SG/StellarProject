@@ -268,7 +268,8 @@ export function ActionDialog({
           !isBuy && <p className="text-ink-2">{a.description}</p>
         )}
 
-        {needs.address && (
+        {/* Once the transaction is sent the inputs go: they can no longer change what was signed. */}
+        {!settled && needs.address && (
           <Field label={a.id === "transfer" ? "Dirección de quien recibe" : "Dirección del comprador"}>
             <input
               className="w-full font-mono"
@@ -282,7 +283,7 @@ export function ActionDialog({
           </Field>
         )}
 
-        {needs.units && (
+        {!settled && needs.units && (
           // Not a <Field>: a <label> around the stepper would send a tap on its text to the "Uno menos" button.
           <div role="group" aria-labelledby="qty-label">
             <p id="qty-label" className="mb-1.5 text-[0.9375rem] font-bold">
@@ -293,7 +294,7 @@ export function ActionDialog({
           </div>
         )}
 
-        {needs.stars && (
+        {!settled && needs.stars && (
           <fieldset>
             <legend className="mb-1.5 text-[0.9375rem] font-bold">Tu calificación</legend>
             <div className="flex gap-1" role="radiogroup" aria-label="Estrellas">
@@ -314,7 +315,7 @@ export function ActionDialog({
           </fieldset>
         )}
 
-        {needs.amount && (
+        {!settled && needs.amount && (
           <Field label="Monto" hint={a.id === "add_bond" ? <BondHint c={c} category={category} /> : "Por ejemplo 50,00"}>
             <AffixInput
               prefix={CURRENCY}
@@ -327,13 +328,13 @@ export function ActionDialog({
           </Field>
         )}
 
-        {needs.evidence && (
+        {!settled && needs.evidence && (
           <Field label="Enlace a la evidencia (foto, factura, informe)" hint={template?.evidenceHint ? `Se espera: ${template.evidenceHint}` : undefined}>
             <input className="w-full" placeholder="https://…" value={evidence} onChange={(e) => setEvidence(e.target.value)} />
           </Field>
         )}
 
-        {needs.verdict && (
+        {!settled && needs.verdict && (
           <fieldset className="grid gap-2">
             <legend className="mb-1.5 text-[0.9375rem] font-bold">¿La entrega ocurrió?</legend>
             {[

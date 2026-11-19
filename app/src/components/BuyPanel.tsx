@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CategoryDef } from "@/catalog";
 import type { Action } from "@/lib/actions";
 import { config } from "@/lib/config";
@@ -13,8 +13,10 @@ import { Money } from "./Money";
 import { readOnlyProps, TokenSetup, useWallet } from "./Wallet";
 
 /**
- * Price, quantity and the one buy button, plus (on phones, while buying is possible) a bar fixed
- * to the bottom of the screen so the button is always under the thumb (elevation 2). The button says
+ * Price, quantity and the one buy button, plus (below desktop width, while buying is possible) a bar
+ * fixed to the bottom of the screen so the button is always under the thumb (elevation 2). The bar
+ * only shows while the panel's own button is off screen, so there is one primary button in view; while
+ * it shows it sets --bottom-bar so toasts clear it. The button says
  * how much money moves. Place one instance per layout. `buy` is the "buy" action from nextActions,
  * or undefined when buying is not possible now.
  */
@@ -27,6 +29,30 @@ export function BuyPanel({ c, category, buy, bar = true }: { c: Campaign; catego
   const [open, setOpen] = useState(false);
   const total = c.unit_price * BigInt(units);
   const totalText = formatMoney(total, decimalsFor(category));
+  const mainButton = useRef<HTMLButtonElement>(null);
+  const [mainVisible, setMainVisible] = useState(true);
+  const showBar = !!buy && bar && !mainVisible;
+
+  useEffect(() => {
+    const el = mainButton.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setMainVisible(e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, [buy]);
+
+  useEffect(() => {
+    // The tab bar is hidden on campaign pages, so this is the only thing at the bottom edge.
+    const root = document.documentElement;
+    const narrow = window.matchMedia("(max-width: 1023px)");
+    const apply = () => root.style.setProperty("--bottom-bar", showBar && narrow.matches ? "84px" : "0px");
+    apply();
+    narrow.addEventListener("change", apply);
+    return () => {
+      narrow.removeEventListener("change", apply);
+      root.style.setProperty("--bottom-bar", "0px");
+    };
+  }, [showBar]);
 
   return (
     <>
@@ -69,7 +95,7 @@ export function BuyPanel({ c, category, buy, bar = true }: { c: Campaign; catego
                 Tu saldo ({formatMoney(balance)}) no alcanza para {formatQty(units, category)}.
               </p>
             )}
-            <button className="btn btn-lg w-full" onClick={() => setOpen(true)} {...readOnlyProps(enabled)}>
+            <button ref={mainButton} className="btn btn-lg w-full" onClick={() => setOpen(true)} {...readOnlyProps(enabled)}>
               {buy.label} <span className="opacity-60">·</span> <span className="font-display tabular-nums [font-stretch:105%]">{totalText}</span>
             </button>
             <p className="text-ink-2">
@@ -81,8 +107,8 @@ export function BuyPanel({ c, category, buy, bar = true }: { c: Campaign; catego
         )}
       </section>
 
-      {buy && bar && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface-fixed px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-fixed lg:hidden print:hidden">
+      {showBar && (
+        <div className="fixed inset-x-0 bottom-0 z-40 animate-[rise-in_var(--motion-base)_var(--motion-ease-enter)] border-t border-line bg-surface-fixed px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-fixed lg:hidden print:hidden">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="t-detail text-ink-2">

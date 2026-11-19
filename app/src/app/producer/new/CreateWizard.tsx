@@ -736,7 +736,7 @@ function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps
             Cierre {sale ? formatDate(sale) : "—"} · Entrega hasta {deadline ? formatDate(deadline) : "—"}
           </Row>
           <Row label="Adelantos">{on.length ? on.map((m) => `${m.title} (${m.pct}%)`).join(", ") : "Ninguno: cobro contra entrega"}</Row>
-          <Row label="Verificador">{d.verifier ? shortAddress(d.verifier) : "—"}</Row>
+          <Row label="Verificador">{d.verifier ? (known.find((v) => v.address === d.verifier)?.name ?? shortAddress(d.verifier)) : "—"}</Row>
         </dl>
       </Section>
 

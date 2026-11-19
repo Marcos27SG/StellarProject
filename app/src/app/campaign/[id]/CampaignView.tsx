@@ -58,7 +58,12 @@ export default function CampaignView({ id }: { id: string }) {
   const h = holding.data ?? null;
   const acts = actionsForRoles(c, h, roles, now, { bond: bond.data, category, deliveries: pending.data });
   const buy = acts.buyer.find((a) => a.id === "buy");
-  const buyerRest = acts.buyer.filter((a) => a.id !== "buy");
+  // One primary action per screen. Each role's list comes with its own primary, so on a page where you
+  // are more than one role (a buyer who can also back the producer) the first role with something to
+  // do keeps it, in this order, and the others become secondary buttons.
+  const lists = [buy ? [buy] : [], acts.buyer.filter((a) => a.id !== "buy"), acts.seller, acts.verifier, acts.guarantor];
+  const owner = lists.findIndex((l) => l.some((a) => a.tone === "primary" && !a.disabled));
+  const [, buyerRest, sellerActs, verifierActs, guarantorActs] = lists.map((l, i) => (i === owner ? l : demote(l)));
   const hasHolding = !!h && h.units + h.pending + h.delivered + h.refunded > 0;
   const vouchers = address && h && hasHolding && (
     <MyVouchers c={c} h={h} buyer={address} category={category} actions={buyerRest} now={now} disputeWindow={c.dispute_window} meta={meta.meta} />
@@ -119,7 +124,7 @@ export default function CampaignView({ id }: { id: string }) {
           {roles.includes("seller") && (
             <RolePanel title="Tu campaña" subtitle="Eres el productor de esta preventa.">
               <SellerSummary c={c} category={category} pendingLoading={pending.loading} />
-              <ActionList actions={acts.seller} c={c} category={category} />
+              <ActionList actions={sellerActs} c={c} category={category} />
               <Link href={`/campaign/${c.id.toString()}/cartel`} className="btn-ghost -ml-3">
                 <Printer className="size-4" aria-hidden /> Imprimir un cartel con QR para tu puesto
               </Link>
@@ -129,8 +134,8 @@ export default function CampaignView({ id }: { id: string }) {
           {roles.includes("verifier") && (
             <RolePanel title="Verificación" subtitle={`Revisas la evidencia y decides las disputas como ${category.verifierLabel.toLowerCase()}.`}>
               {pending.loading && <p className="text-ink-2">Buscando entregas pendientes y disputas…</p>}
-              {acts.verifier.length > 0 ? (
-                <ActionList actions={acts.verifier} c={c} category={category} />
+              {verifierActs.length > 0 ? (
+                <ActionList actions={verifierActs} c={c} category={category} />
               ) : (
                 <p className="text-ink-2">Nada que revisar por ahora.</p>
               )}
@@ -153,7 +158,7 @@ export default function CampaignView({ id }: { id: string }) {
                 </>
               }
             >
-              <ActionList actions={acts.guarantor} c={c} category={category} />
+              <ActionList actions={guarantorActs} c={c} category={category} />
             </RolePanel>
           )}
 
@@ -435,4 +440,8 @@ function CampaignSkeleton() {
       <div className="hidden lg:block">{buy}</div>
     </div>
   );
+}
+
+function demote(list: Action[]): Action[] {
+  return list.map((a) => (a.tone === "primary" ? { ...a, tone: "default" as const } : a));
 }

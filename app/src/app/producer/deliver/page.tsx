@@ -3,10 +3,10 @@
 // Opened by scanning the buyer's voucher QR with the producer's phone camera
 // (/producer/deliver?campaign=<id>&buyer=<G…>&units=<n>). Big targets: used outdoors, at a market stall.
 
-import { PackageCheck, QrCode } from "lucide-react";
+import { CircleCheck, PackageCheck, QrCode } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { copy } from "@/catalog";
 import { Stepper } from "@/components/ActionPanel";
 import { StatusPill } from "@/components/badges";
@@ -40,6 +40,11 @@ function Deliver() {
   const hw = holding.data;
   const settled = !!watch && !!hw && (hw.delivered > watch.delivered || hw.disputed || hw.pending === 0);
   usePolling(holding.refresh, 5000, !!watch && !settled);
+  // Back on this page with a delivery still waiting (a reload at the stall, or coming back later):
+  // keep watching, so "Cobraste" still appears when the buyer confirms.
+  useEffect(() => {
+    if (!watch && hw && hw.pending > 0) setWatch({ delivered: hw.delivered });
+  }, [watch, hw]);
 
   if (!ok) {
     return (
@@ -108,6 +113,13 @@ function Deliver() {
           <Stat size="lg" label="Por recibir" value={formatQty(h.units, category)} />
           <Stat size="lg" label={h.disputed ? "En disputa" : "Esperando confirmación"} value={formatQty(h.pending, category)} tone={h.disputed ? "danger" : undefined} />
         </dl>
+        {/* Opened after the hand-off (nothing waiting): say how it ended instead of two zeros. */}
+        {!watch && h.delivered > 0 && h.pending === 0 && (
+          <p className="flex items-start gap-2 rounded-md bg-success-soft px-3.5 py-3 font-bold text-success">
+            <CircleCheck className="mt-0.5 size-5 shrink-0" aria-hidden />
+            El comprador ya recibió {formatQty(h.delivered, category)} y el pago se liberó al productor.
+          </p>
+        )}
 
         {!address ? (
           enabled ? (
