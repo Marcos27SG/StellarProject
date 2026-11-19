@@ -432,23 +432,33 @@ export function ExplorerLink({ path, children = "Ver la prueba" }: { path: strin
   );
 }
 
-/** A form field: the label always visible above, the control, then the error (how to fix it) or the hint. */
+/**
+ * A form field: the label always visible above, the control, then the error (how to fix it) or the hint.
+ * `group`: for controls made of several buttons (the quantity stepper), a labelled group instead of a
+ * <label>, which would send a tap on its text to the first button.
+ */
 export function Field({
   label,
   hint,
   error,
   children,
   wide,
+  group,
 }: {
   label: ReactNode;
   hint?: ReactNode;
   error?: string;
   children: ReactNode;
   wide?: boolean;
+  group?: boolean;
 }) {
+  const id = useId();
+  const Wrap = group ? "div" : "label";
   return (
-    <label className={`block ${wide ? "sm:col-span-2" : ""}`}>
-      <span className="mb-1.5 block text-[0.9375rem] font-bold text-ink">{label}</span>
+    <Wrap className={`block ${wide ? "sm:col-span-2" : ""}`} {...(group ? { role: "group", "aria-labelledby": id } : {})}>
+      <span id={id} className="mb-1.5 block text-[0.9375rem] font-bold text-ink">
+        {label}
+      </span>
       {children}
       {error ? (
         <span className="t-detail mt-1.5 flex items-start gap-1.5 text-danger" role="alert">
@@ -458,7 +468,7 @@ export function Field({
       ) : (
         hint && <span className="t-detail mt-1.5 block text-ink-2">{hint}</span>
       )}
-    </label>
+    </Wrap>
   );
 }
 
