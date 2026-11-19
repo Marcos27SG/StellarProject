@@ -3,7 +3,7 @@
 // Share a link the way people in Bolivia actually do: the phone's share sheet when there is one
 // (it includes WhatsApp), otherwise a small dialog with WhatsApp and "copy link". One button either way.
 
-import { Check, Link2, MessageCircle, Share2 } from "lucide-react";
+import { Check, Link2, MessageCircle, Share } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Dialog } from "./ui";
 
@@ -55,7 +55,7 @@ export function ShareButton({
   return (
     <>
       <button type="button" className={`${variant === "ghost" ? "btn-ghost" : "btn-secondary"} ${className}`} onClick={click}>
-        <Share2 className="size-4" aria-hidden /> {label}
+        <Share className="size-5" aria-hidden /> {label}
       </button>
       {open && (
         <Dialog open onClose={() => setOpen(false)} title="Compartir">
@@ -66,14 +66,14 @@ export function ShareButton({
               target="_blank"
               rel="noreferrer"
             >
-              <MessageCircle className="size-4" aria-hidden /> Enviar por WhatsApp
+              <MessageCircle className="size-5" aria-hidden /> Enviar por WhatsApp
             </a>
             <button type="button" className="btn-secondary justify-start" onClick={copy} aria-live="polite">
-              {copied ? <Check className="size-4 text-success" aria-hidden /> : <Link2 className="size-4" aria-hidden />}
+              {copied ? <Check className="size-5 text-success" aria-hidden /> : <Link2 className="size-5" aria-hidden />}
               {copied ? "Enlace copiado" : "Copiar enlace"}
             </button>
             {manual && (
-              <label className="block text-sm text-ink-2">
+              <label className="block text-ink-2">
                 Copia el enlace:
                 <input readOnly autoFocus value={manual} onFocus={(e) => e.currentTarget.select()} className="mt-1 w-full font-mono" />
               </label>

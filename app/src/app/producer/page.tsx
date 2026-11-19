@@ -1,13 +1,13 @@
 "use client";
 
-import { ArrowRight, CalendarClock, ChevronDown, Plus, TriangleAlert } from "lucide-react";
+import { ArrowRight, CalendarClock, ChevronDown, PenLine, Plus } from "lucide-react";
 import Link from "next/link";
-import { ProducerLine, Stars, StatusPill, Streak, TierBadge } from "@/components/badges";
+import { ProducerLine, Stars, StatusPill, Streak, TierBadge, TierLadder } from "@/components/badges";
 import { timeHint } from "@/components/CampaignCard";
 import { CategoryTile } from "@/components/CategoryIcon";
 import { FundingBar } from "@/components/FundingBar";
 import { Money, Qty } from "@/components/Money";
-import { EmptyState, Notice, ProgressBar, Skeleton, Stat, Term } from "@/components/ui";
+import { EmptyState, Notice, Pill, ProgressBar, Skeleton, Stat, Term } from "@/components/ui";
 import { readOnlyProps, useWallet } from "@/components/Wallet";
 import { attentionActions, nextActions, type Role } from "@/lib/actions";
 import { avgRating, type StatusTag } from "@/lib/despensa";
@@ -28,7 +28,7 @@ function Landing() {
   const { enabled, connect } = useWallet();
   const steps = [
     { title: "Publica tu preventa", text: "Qué vas a producir, a qué precio y cuánto puedes entregar." },
-    { title: "Tus compradores pagan hoy", text: "El dinero queda en custodia en Stellar: ven que es seguro y compran." },
+    { title: "Tus compradores reservan hoy", text: "El dinero queda en custodia en Stellar: ven que es seguro y reservan." },
     { title: "Cobras al entregar", text: "Escaneas su QR y te pagan al instante, en dólares digitales." },
     { title: "Subes de nivel", text: "Cada entrega cumplida suma reputación y te habilita adelantos para producir." },
   ];
@@ -36,7 +36,7 @@ function Landing() {
     <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:items-start">
       <section className="space-y-5">
         <h1 className="h-page">Vende por adelantado, sin empezar de cero</h1>
-        <p className="text-lg text-ink-2">
+        <p className="text-[1.0625rem] text-ink-2 lg:text-lg">
           Asegura compradores y un precio fijo antes de producir. Con buena reputación, recibe adelantos para comprar insumos, respaldados por un{" "}
           <Term k="aval">aval</Term> de quien confía en ti.
         </p>
@@ -45,17 +45,17 @@ function Landing() {
             Entrar con Google
           </button>
           <Link href="/producer/new" className="btn-ghost">
-            Ver cómo se arma una preventa <ArrowRight className="size-4" aria-hidden />
+            Ver cómo se arma una preventa <ArrowRight className="size-5" aria-hidden />
           </Link>
         </div>
       </section>
       <ol className="space-y-4 border-line lg:border-l lg:pl-10">
         {steps.map(({ title, text }, i) => (
           <li key={title} className="flex gap-4">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">{i + 1}</span>
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-2 text-sm font-bold text-brand">{i + 1}</span>
             <span className="space-y-0.5">
-              <b className="block font-semibold">{title}</b>
-              <span className="text-sm text-ink-2">{text}</span>
+              <b className="block font-bold">{title}</b>
+              <span className="text-ink-2">{text}</span>
             </span>
           </li>
         ))}
@@ -75,12 +75,15 @@ function Dashboard({ address }: { address: string }) {
     <div className="space-y-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-2">
-          <h1 className="h-page">Tus preventas</h1>
+          <h1 className="h-page">Mi puesto</h1>
           <ProducerLine seller={address} />
         </div>
-        <Link href="/producer/new" className="btn">
-          <Plus className="size-4" aria-hidden /> Nueva preventa
-        </Link>
+        {/* With no campaigns the empty state below carries the one primary action. */}
+        {mine.length > 0 && (
+          <Link href="/producer/new" className="btn btn-lg">
+            <Plus className="size-5" aria-hidden /> Nueva preventa
+          </Link>
+        )}
       </header>
 
       <ReputationCard address={address} />
@@ -116,7 +119,7 @@ function Dashboard({ address }: { address: string }) {
           <h2 id="verifying" className="h-section">
             Campañas que verificas
           </h2>
-          <p className="text-sm text-ink-2">
+          <p className="text-ink-2">
             Apruebas hitos y decides disputas.{" "}
             <Link href="/verify" className="link">
               Abrir el panel del verificador
@@ -131,23 +134,34 @@ function Dashboard({ address }: { address: string }) {
 
 function ReputationCard({ address }: { address: string }) {
   const q = useProducer(address);
-  if (!q.data) return <Skeleton className="h-32 w-full rounded-2xl" />;
+  if (!q.data)
+    return (
+      <div className="card space-y-4 p-5" aria-hidden>
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-4 w-2/3" />
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-md" />
+          ))}
+        </div>
+      </div>
+    );
   const { rep, tier } = q.data;
   const p = tierProgress(rep);
   const avg = avgRating(rep);
   const next = p.next !== null ? TIER_LIMITS[p.next] : null;
 
   return (
-    <section className="space-y-4 rounded-2xl bg-surface-2 p-5" aria-labelledby="rep">
+    <section className="card space-y-5 p-5" aria-labelledby="rep">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h2 id="rep" className="h-sub">
+        <h2 id="rep" className="h-section">
           Tu reputación
         </h2>
-        <TierBadge tier={tier.tier} />
+        <TierBadge tier={tier.tier} size="md" />
         <Stars value={avg} count={rep.rating_count} />
-        <Streak n={rep.streak} />
       </div>
-      <p className="text-sm text-ink-2">
+      <Streak n={rep.streak} showZero />
+      <p className="text-ink-2">
         {tier.max_advance_bps > 0 ? (
           <>
             Hoy puedes pedir adelantos de hasta <b className="text-ink">{formatPct(tier.max_advance_bps)}</b>, con un aval del{" "}
@@ -160,18 +174,19 @@ function ReputationCard({ address }: { address: string }) {
       {p.next !== null && (
         <div className="space-y-1.5">
           <ProgressBar value={rep.completed} max={rep.completed + p.needed} label="Avance hacia el siguiente nivel" />
-          <p className="text-sm text-ink-2">
+          <p className="text-ink-2">
             {p.reason === "normal" &&
-              `${p.needed} ${p.needed === 1 ? "entrega cumplida" : "entregas cumplidas"} más para ${TIER_NAMES[p.next]}: adelantos de hasta ${formatPct(next!.maxAdvanceBps)}.`}
+              `${p.needed} ${p.needed === 1 ? "campaña cumplida" : "campañas cumplidas"} más para ${TIER_NAMES[p.next]}: adelantos de hasta ${formatPct(next!.maxAdvanceBps)}.`}
             {p.reason === "restricted" &&
               `Tienes incumplimientos: cumple ${p.needed} ${p.needed === 1 ? "campaña" : "campañas"} más para volver a recibir adelantos.`}
             {p.reason === "low_rating" && "Tu calificación promedio está bajo 3 estrellas: mejórala para recuperar tu nivel."}
           </p>
         </div>
       )}
-      {p.reason === "top" && <p className="text-sm text-ink-2">Estás en el nivel más alto. Mantén tu racha.</p>}
+      {p.reason === "top" && <p className="text-ink-2">Estás en el nivel más alto. Mantén tu racha.</p>}
+      <TierLadder current={tier.tier} />
       <details className="group">
-        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm font-semibold text-brand">
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 font-bold text-brand">
           Ver tu historial
           <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden />
         </summary>
@@ -208,17 +223,17 @@ function CampaignRow({ item: { c, meta, category }, role, me }: { item: Campaign
     <li>
       <Link
         href={`/campaign/${c.id.toString()}`}
-        className="card grid gap-4 p-5 transition-shadow hover:shadow-lift sm:grid-cols-[auto_minmax(0,1fr)_220px] sm:items-center"
+        className="card grid gap-4 p-4 transition-shadow hover:shadow-lift sm:grid-cols-[auto_minmax(0,1fr)_240px] sm:items-center"
       >
         <span className="hidden sm:flex">
           <CategoryTile category={category} />
         </span>
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate font-semibold">{c.title}</h3>
+            <h3 className="truncate font-bold">{c.title}</h3>
             <StatusPill c={c} />
           </div>
-          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-2">
+          <p className="t-detail flex flex-wrap items-center gap-x-4 gap-y-1 text-ink-2">
             <span className="inline-flex items-center gap-1.5">
               <CalendarClock className="size-4" aria-hidden />
               {timeHint(c, now)}
@@ -234,13 +249,13 @@ function CampaignRow({ item: { c, meta, category }, role, me }: { item: Campaign
             {meta.meta.producer.displayName && role === "verifier" && <span>de {meta.meta.producer.displayName}</span>}
           </p>
           {urgent && (
-            <p className="inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">
-              <TriangleAlert className="size-3.5" aria-hidden />
+            // Something you have to do: the accent, like "Por confirmar".
+            <Pill tone="accent" icon={PenLine}>
               Te toca: {urgent.label}
-            </p>
+            </Pill>
           )}
         </div>
-        <FundingBar c={c} category={category} />
+        <FundingBar c={c} category={category} now={now} />
       </Link>
     </li>
   );
@@ -248,9 +263,16 @@ function CampaignRow({ item: { c, meta, category }, role, me }: { item: Campaign
 
 function RowSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" aria-busy aria-label="Cargando tus preventas">
       {[0, 1].map((i) => (
-        <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+        <div key={i} className="card flex items-center gap-4 p-4">
+          <Skeleton className="hidden size-12 shrink-0 rounded-md sm:block" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-3 w-3/4" />
+          </div>
+          <Skeleton className="hidden h-2 w-60 rounded-full sm:block" />
+        </div>
       ))}
     </div>
   );

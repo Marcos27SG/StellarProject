@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { copy, generic, getCategory, listCategories, type CategoryDef } from "@/catalog";
 import { CampaignCard } from "@/components/CampaignCard";
 import { CategoryIcon } from "@/components/CategoryIcon";
-import { EmptyState, Notice, Skeleton } from "@/components/ui";
+import { AffixInput, CampaignCardSkeleton, EmptyState, Notice } from "@/components/ui";
 import { avgRating, type StatusTag } from "@/lib/despensa";
 import { useCampaignList, useNow, useProducers, type CampaignItem, type ProducerStats } from "@/lib/hooks";
 
@@ -94,10 +94,10 @@ export default function Marketplace() {
   return (
     <div className="space-y-10">
       <section className="max-w-2xl space-y-3">
-        <h1 className="font-display text-4xl leading-tight font-semibold tracking-tight sm:text-5xl">{tagline}</h1>
-        <p className="text-lg text-ink-2">
-          Compra por adelantado a productores locales, a precio fijo. Tu pago espera en Stellar y el productor cobra cuando recibes. Si no
-          cumple, se te devuelve.
+        <h1 className="t-display">{tagline}</h1>
+        <p className="text-[1.0625rem] text-ink-2 lg:text-lg">
+          Reserva por adelantado a productores locales, a precio fijo. Tu pago espera en un contrato público de Stellar y el productor cobra
+          cuando recibes. Si la preventa no llega a su mínimo, recuperas el 100%.
         </p>
         <HowItWorks />
       </section>
@@ -107,7 +107,7 @@ export default function Marketplace() {
           <h2 id="preventas" className="h-section">
             {fellBack ? "Preventas recientes" : effectiveStatus === "live" ? "Preventas abiertas" : "Preventas"}
           </h2>
-          {fellBack && <p className="text-sm text-ink-2">Ahora no hay preventas abiertas. Estas ya terminaron.</p>}
+          {fellBack && <p className="text-ink-2">Ahora no hay preventas abiertas. Estas ya terminaron.</p>}
         </div>
 
         <div className="no-scrollbar -mx-4 overflow-x-auto px-4 pb-1">
@@ -121,10 +121,15 @@ export default function Marketplace() {
 
         {toolbar && (
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-            <label className="relative">
+            <label>
               <span className="sr-only">Buscar</span>
-              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3" aria-hidden />
-              <input type="search" className="w-full pl-9" placeholder="Producto, productor o zona" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <AffixInput
+                prefix={<Search className="size-5 text-ink-2" aria-hidden />}
+                type="search"
+                placeholder="Producto, productor o zona"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
             </label>
             <label>
               <span className="sr-only">Estado</span>
@@ -164,16 +169,9 @@ export default function Marketplace() {
         )}
 
         {!items && !list.error && (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-busy aria-label="Cargando preventas">
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3" aria-busy aria-label="Cargando preventas">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="card overflow-hidden">
-                <Skeleton className="h-36 rounded-none" />
-                <div className="space-y-3 p-5">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-6 w-1/2" />
-                  <Skeleton className="h-2 w-full" />
-                </div>
-              </div>
+              <CampaignCardSkeleton key={i} />
             ))}
           </div>
         )}
@@ -181,7 +179,7 @@ export default function Marketplace() {
         {items && shown.length === 0 && <Empty selected={selected} filtered={!!query || effectiveStatus !== "live"} />}
 
         {shown.length > 0 && (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
             {shown.map((i) => (
               <CampaignCard
                 key={i.c.id.toString()}
@@ -203,19 +201,20 @@ export default function Marketplace() {
 function HowItWorks() {
   return (
     <details className="group">
-      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm font-semibold text-brand">
+      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 font-bold text-brand">
         ¿Cómo funciona?
         <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden />
       </summary>
-      <ol className="space-y-2 text-sm text-ink-2 [&_b]:text-ink">
+      <ol className="space-y-2 text-ink-2 [&_b]:text-ink">
         <li>
-          <b>1. Compras hoy</b> al precio de hoy, en dólares digitales.
+          <b>1. Reservas hoy</b> al precio de hoy, en dólares digitales.
         </li>
         <li>
-          <b>2. Tu pago queda en custodia</b> en un contrato de Stellar: ni el productor ni Pacta pueden tocarlo.
+          <b>2. Tu pago queda en custodia</b> en un contrato de Stellar: ni el productor ni Ayni pueden tocarlo.
         </li>
         <li>
-          <b>3. Recibes y confirmas.</b> Recién ahí cobra el productor. Si no cumple o no llega a la meta, se te devuelve.
+          <b>3. Recibes y confirmas.</b> Recién ahí cobra el productor. Si no se llega al mínimo, recuperas el 100%. Si el productor no
+          cumple, se te devuelve hasta lo que pagaste: de la custodia, de su aval y del fondo común.
         </li>
       </ol>
     </details>
@@ -225,16 +224,10 @@ function HowItWorks() {
 function Chip({ on, onClick, label, category, soon }: { on: boolean; onClick: () => void; label: string; category?: CategoryDef; soon?: boolean }) {
   return (
     <li>
-      <button
-        onClick={onClick}
-        aria-pressed={on}
-        className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm transition-colors ${
-          on ? "border-ink bg-ink font-semibold text-bg" : "border-line-strong bg-surface text-ink hover:bg-surface-2"
-        }`}
-      >
-        {category && <CategoryIcon category={category} className="size-4" />}
+      <button type="button" onClick={onClick} aria-pressed={on} className="chip">
+        {category && <CategoryIcon category={category} className="size-[18px]" />}
         {label}
-        {soon && <span className={on ? "" : "text-ink-2"}>· pronto</span>}
+        {soon && <span className={on ? "font-normal" : "font-normal text-ink-2"}>· pronto</span>}
       </button>
     </li>
   );

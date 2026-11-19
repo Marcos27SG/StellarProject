@@ -361,8 +361,9 @@ describe("invariants", () => {
 
   it("actions that release money or end a campaign are flagged irreversible; refundable ones are not", () => {
     // close_sale is left out: once the sale has ended, closing it is bookkeeping anyone may do, with a fixed outcome.
-    const mustBe: ActionId[] = ["confirm", "transfer", "cancel", "declare_default", "approve_milestone", "resolve_dispute"];
-    const mustNot: ActionId[] = ["buy", "dispute", "add_bond"];
+    // dispute: only the verifier can close it, so the buyer can't take it back.
+    const mustBe: ActionId[] = ["confirm", "transfer", "cancel", "declare_default", "approve_milestone", "resolve_dispute", "dispute"];
+    const mustNot: ActionId[] = ["buy", "add_bond"];
     const seen = new Set<ActionId>();
     for (const tag of statuses)
       for (const role of roles)

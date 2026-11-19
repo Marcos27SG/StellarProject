@@ -1,15 +1,18 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
-import { Fraunces, Geist, Geist_Mono } from "next/font/google";
+import { Archivo, Atkinson_Hyperlegible } from "next/font/google";
 import "@pollar/react/styles.css";
 import "./globals.css";
-import { PactaMark } from "@/components/Logo";
-import { SiteHeader } from "@/components/SiteHeader";
+import { AyniMark } from "@/components/Logo";
+import { BottomTabs, SiteHeader } from "@/components/SiteHeader";
+import { ToastProvider } from "@/components/Toast";
 import { Providers } from "@/components/Wallet";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], axes: ["SOFT", "opsz"] });
+// Archivo is variable in weight and width: the type scale uses width 115 (display, title-1) and 110
+// (title-2, amounts). Without the wdth axis the headings would render at normal width.
+const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin"], axes: ["wdth"] });
+// Atkinson Hyperlegible tells 1/l/I and 0/O apart, which matters in prices and codes. Not variable.
+const atkinson = Atkinson_Hyperlegible({ variable: "--font-atkinson", subsets: ["latin"], weight: ["400", "700"] });
 
 const DESCRIPTION =
   "Preventa de productos locales a precio fijo. Tu dinero queda protegido en Stellar hasta que recibes tu producto.";
@@ -19,42 +22,48 @@ const SITE_URL =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  applicationName: "Pacta",
-  title: { default: "Pacta · No es una promesa. Es un pacto.", template: "%s · Pacta" },
+  applicationName: "Ayni",
+  title: { default: "Ayni · Lo que das, vuelve.", template: "%s · Ayni" },
   description: DESCRIPTION,
-  openGraph: { siteName: "Pacta", type: "website", locale: "es_BO", title: "Pacta", description: DESCRIPTION },
-  twitter: { card: "summary_large_image", title: "Pacta", description: DESCRIPTION },
+  openGraph: { siteName: "Ayni", type: "website", locale: "es_BO", title: "Ayni · Lo que das, vuelve.", description: DESCRIPTION },
+  twitter: { card: "summary_large_image", title: "Ayni · Lo que das, vuelve.", description: DESCRIPTION },
 };
 
 export const viewport: Viewport = {
   themeColor: [
     // Browser chrome color: mirrors --bg in globals.css (metadata can't read CSS variables).
     { media: "(prefers-color-scheme: light)", color: "#f7f4ee" },
-    { media: "(prefers-color-scheme: dark)", color: "#14120f" },
+    { media: "(prefers-color-scheme: dark)", color: "#121714" },
   ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es">
-      <body className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} antialiased`}>
+      <body className={`${archivo.variable} ${atkinson.variable} antialiased`}>
         <Providers>
+          <ToastProvider>
           <SiteHeader />
           <main className="mx-auto max-w-6xl px-4 py-8 sm:py-10 print:max-w-none print:p-0">{children}</main>
-          <footer className="mx-auto mt-8 max-w-6xl border-t border-line px-4 pt-6 pb-28 text-sm text-ink-2 lg:pb-10 print:hidden">
+          <footer className="t-detail mx-auto mt-8 max-w-6xl border-t border-line px-4 pt-6 pb-32 text-ink-2 lg:pb-10 print:hidden">
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
               <p className="flex items-center gap-2">
-                <PactaMark className="size-5" />
+                <AyniMark className="size-6" />
                 <span>
-                  <b className="font-semibold text-ink">Pacta.</b> No es una promesa. Es un pacto.
+                  <b className="font-semibold text-ink">Ayni.</b> Lo que das, vuelve.
                 </span>
               </p>
               <Link href="/transparencia" className="link">
                 Transparencia: el contrato en vivo
               </Link>
             </div>
-            <p className="mt-3">Stellar testnet · Hackathon Stellar Bolivia 2026 · Los montos son de prueba.</p>
+            <p className="mt-3">
+              <i>Ayni</i> es la reciprocidad andina: hoy por ti, mañana por mí.
+            </p>
+            <p className="mt-1">Stellar testnet · Hackathon Stellar Bolivia 2026 · Los montos son de prueba.</p>
           </footer>
+          <BottomTabs />
+          </ToastProvider>
         </Providers>
       </body>
     </html>

@@ -13,7 +13,7 @@ import { CampaignCard } from "@/components/CampaignCard";
 import { ShareButton } from "@/components/ShareButton";
 import { CategoryTile } from "@/components/CategoryIcon";
 import { Money } from "@/components/Money";
-import { Field, Notice, ProgressBar, Term, TxSteps } from "@/components/ui";
+import { AffixInput, Field, Notice, ProgressBar, Term, TxSteps } from "@/components/ui";
 import { readOnlyProps, useAction, useWallet } from "@/components/Wallet";
 import { friendlyError, getCampaign, getConfig, isValidAddress, type TierInfo } from "@/lib/despensa";
 import { formatBs, formatDate, formatPct, formatQty, parseUsd, shortAddress } from "@/lib/format";
@@ -165,7 +165,7 @@ export default function CreateWizard() {
   return (
     <div className="space-y-8">
       <Link href="/producer" className="btn-ghost -ml-3">
-        <ArrowLeft className="size-4" aria-hidden /> Tus preventas
+        <ArrowLeft className="size-5" aria-hidden /> Mi puesto
       </Link>
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
@@ -201,7 +201,7 @@ export default function CreateWizard() {
           {step > 0 && (
             <div className="space-y-3 border-t border-line pt-5">
               {showErrors && !valid && (
-                <p className="flex items-center gap-2 text-sm font-medium text-danger" role="alert">
+                <p className="flex items-center gap-2 font-bold text-danger" role="alert">
                   <TriangleAlert className="size-4" aria-hidden /> Revisa los campos marcados.
                 </p>
               )}
@@ -227,7 +227,7 @@ export default function CreateWizard() {
 
         {draft && category && (
           <aside className="hidden space-y-3 lg:sticky lg:top-20 lg:block lg:self-start">
-            <p className="text-sm font-medium text-ink-2">Así se verá en el mercado</p>
+            <p className="text-[0.9375rem] font-bold text-ink-2">Así se verá en el mercado</p>
             <Preview d={draft} category={category} address={address} stats={producer.data} tier={tier} now={now} />
           </aside>
         )}
@@ -250,13 +250,13 @@ function StepNav({ step, reachable, onGo }: { step: WizardStep; reachable: numbe
               onClick={() => onGo(i as WizardStep)}
               disabled={i >= step || i > reachable}
               aria-current={state === "current" ? "step" : undefined}
-              className={`inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm ${
-                state === "current" ? "bg-ink font-semibold text-bg" : state === "done" ? "text-ink hover:bg-surface-2" : "text-ink-2"
+              className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3 text-[0.9375rem] font-bold ${
+                state === "current" ? "border-brand bg-brand text-brand-ink" : state === "done" ? "border-line-strong bg-surface text-ink hover:bg-surface-2" : "border-transparent text-ink-2"
               }`}
             >
               <span
                 className={`flex size-6 items-center justify-center rounded-full text-xs font-semibold ${
-                  state === "done" ? "bg-brand text-brand-ink" : state === "current" ? "bg-bg text-ink" : "bg-surface-2"
+                  state === "done" ? "bg-brand text-brand-ink" : state === "current" ? "bg-brand-ink text-brand" : "bg-surface-2"
                 }`}
               >
                 {state === "done" ? <Check className="size-3" aria-hidden /> : i + 1}
@@ -276,7 +276,7 @@ function Section({ title, hint, children }: { title: string; hint?: ReactNode; c
     <section className="space-y-4">
       <div className="space-y-1">
         <h2 className="h-section">{title}</h2>
-        {hint && <p className="text-sm text-ink-2">{hint}</p>}
+        {hint && <p className="text-ink-2">{hint}</p>}
       </div>
       {children}
     </section>
@@ -299,7 +299,7 @@ function StepCategory({ selected, onPick }: { selected?: string; onPick: (c: Cat
               disabled={c.comingSoon}
               onClick={() => onPick(c)}
               aria-pressed={selected === c.id}
-              className={`flex h-full w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors ${
+              className={`flex h-full w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
                 selected === c.id ? "border-brand bg-brand-soft ring-2 ring-brand" : "border-line-strong bg-surface hover:bg-surface-2"
               } disabled:cursor-not-allowed disabled:border-line disabled:bg-transparent`}
             >
@@ -309,7 +309,7 @@ function StepCategory({ selected, onPick }: { selected?: string; onPick: (c: Cat
                   {c.label}
                   {c.comingSoon && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold text-ink-2">Muy pronto</span>}
                 </span>
-                <span className="block text-sm text-ink-2">
+                <span className="t-detail block text-ink-2">
                   Se vende por {c.unit.singular} · {c.perishable ? "perecedero" : "no perecedero"}
                 </span>
               </span>
@@ -379,7 +379,7 @@ function StepDetails({ d, category, update, errors }: StepProps) {
           </Field>
         </div>
         <div className="space-y-3">
-          <p className="text-sm font-medium">Puntos de entrega</p>
+          <p className="text-[0.9375rem] font-bold">Puntos de entrega</p>
           {d.points.map((p, i) => (
             <div key={i} className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
               <input aria-label="Lugar" placeholder="Feria de la plaza" value={p.name} onChange={(e) => setPoint(i, { name: e.target.value })} />
@@ -471,25 +471,30 @@ function StepPrice({ d, category, update, errors }: StepProps) {
   const min = Number(d.minUnits) || 0;
   const step = Math.max(1, category.unit.step);
   return (
-    <Section title="Precio y meta" hint="El precio queda bloqueado en dólares digitales: no cambia aunque suba el boliviano.">
+    <Section title="Precio y cantidades" hint="El precio queda bloqueado en dólares digitales: no cambia aunque suba el boliviano.">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label={`Precio por ${category.unit.singular} (USD)`}
-          error={errors.price}
-          hint={price !== null && price > BigInt(0) ? `≈ Bs ${formatBs(price, category.priceDisplay.decimals)} al tipo de cambio de referencia` : "Por ejemplo 0,60"}
-        >
-          <input {...invalid(errors.price)} inputMode="decimal" value={d.price} onChange={(e) => update({ price: e.target.value })} />
+        <Field label={`Precio por ${category.unit.singular}`} error={errors.price} hint="Precio fijo hasta la entrega. Bs al cambio de referencia.">
+          <AffixInput
+            {...invalid(errors.price)}
+            prefix="$us"
+            suffix={price !== null && price > BigInt(0) ? `≈ Bs ${formatBs(price, category.priceDisplay.decimals)}` : undefined}
+            inputMode="decimal"
+            placeholder="0,60"
+            value={d.price}
+            onChange={(e) => update({ price: e.target.value })}
+          />
         </Field>
         <div />
         <Field
-          label={`Meta mínima (${category.unit.plural})`}
+          group
+          label={`Cantidad mínima (${category.unit.plural})`}
           error={errors.minUnits}
           hint="Si no se alcanza antes del cierre, todos recuperan el 100% y tú no pierdes reputación."
         >
-          <UnitStepper value={min || step} onChange={(n) => update({ minUnits: String(n) })} step={step} />
+          <UnitStepper value={min || step} onChange={(n) => update({ minUnits: String(n) })} step={step} unit={category.unit.plural} label="Cantidad mínima" />
         </Field>
-        <Field label={`Lo máximo que puedes producir (${category.unit.plural})`} error={errors.maxUnits} hint="Nadie puede comprarte más que esto.">
-          <UnitStepper value={max || step} onChange={(n) => update({ maxUnits: String(n) })} step={step} />
+        <Field group label={`Lo máximo que puedes producir (${category.unit.plural})`} error={errors.maxUnits} hint="Nadie puede reservarte más que esto.">
+          <UnitStepper value={max || step} onChange={(n) => update({ maxUnits: String(n) })} step={step} unit={category.unit.plural} label="Cantidad máxima" />
         </Field>
         <Field label="Cierre de la preventa" error={errors.saleEnd}>
           <input {...invalid(errors.saleEnd)} type="date" value={d.saleEnd} onChange={(e) => update({ saleEnd: e.target.value })} />
@@ -499,7 +504,7 @@ function StepPrice({ d, category, update, errors }: StepProps) {
         </Field>
       </div>
       {price !== null && price > BigInt(0) && max > 0 && (
-        <dl className="grid gap-3 rounded-xl bg-surface-2 p-4 text-sm sm:grid-cols-2">
+        <dl className="grid gap-3 rounded-md bg-surface-2 p-4 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-ink-2">Si vendes todo ({formatQty(max, category)})</dt>
             <dd>
@@ -508,7 +513,7 @@ function StepPrice({ d, category, update, errors }: StepProps) {
           </div>
           {min > 0 && (
             <div>
-              <dt className="text-ink-2">Con la meta mínima ({formatQty(min, category)})</dt>
+              <dt className="text-ink-2">Con la cantidad mínima ({formatQty(min, category)})</dt>
               <dd>
                 <Money amount={price * BigInt(min)} category={category} />
               </dd>
@@ -541,7 +546,7 @@ function StepMilestones({ d, category, tier, feeBps, update, errors }: StepProps
         </>
       }
     >
-      <div className="rounded-xl bg-surface-2 p-4 text-sm text-ink-2 [&_b]:text-ink">
+      <div className="rounded-md bg-surface-2 p-4 text-sm text-ink-2 [&_b]:text-ink">
         Tu nivel <b>{TIER_NAMES[tier.tier]}</b>{" "}
         {tier.max_advance_bps > 0 ? (
           <>
@@ -562,7 +567,7 @@ function StepMilestones({ d, category, tier, feeBps, update, errors }: StepProps
             </div>
             <ProgressBar value={Math.min(used, tier.max_advance_bps)} max={Math.max(1, tier.max_advance_bps)} tone={over ? "danger" : "brand"} label="Adelanto usado sobre tu límite" />
             {over && (
-              <p className="mt-1.5 text-sm font-medium text-danger" role="alert">
+              <p className="t-detail mt-1.5 font-bold text-danger" role="alert">
                 Pasaste tu límite de adelanto.
               </p>
             )}
@@ -570,7 +575,7 @@ function StepMilestones({ d, category, tier, feeBps, update, errors }: StepProps
 
           <ul className="space-y-3">
             {d.milestones.map((m, i) => (
-              <li key={i} className={`rounded-xl p-3 ${m.enabled ? "bg-surface-2" : ""}`}>
+              <li key={i} className={`rounded-md p-3 ${m.enabled ? "bg-surface-2" : ""}`}>
                 <div className="grid items-start gap-3 sm:grid-cols-[auto_1fr_7rem_auto]">
                   <input
                     type="checkbox"
@@ -624,13 +629,13 @@ function StepMilestones({ d, category, tier, feeBps, update, errors }: StepProps
       {errors.milestones && <Notice tone="danger">{errors.milestones}</Notice>}
 
       {anyOn && used > 0 && !over && (
-        <p className="text-sm text-ink-2">
+        <p className="text-ink-2">
           Si vendes todo, recibirías <Money amount={flow.advanceNet} category={category} size="sm" /> por adelantado. Antes de que se apruebe,
           tú o alguien que te respalde debe dejar un aval de <Money amount={flow.bondNeeded} category={category} size="sm" />. Si cumples, el
           aval se devuelve entero.
         </p>
       )}
-      {!anyOn && <p className="text-sm text-ink-2">Sin hitos: cobras todo al entregar. Es la opción más simple y no necesita aval.</p>}
+      {!anyOn && <p className="text-ink-2">Sin hitos: cobras todo al entregar. Es la opción más simple y no necesita aval.</p>}
     </Section>
   );
 }
@@ -660,7 +665,7 @@ function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps
             {known.map((v) => (
               <label
                 key={v.address}
-                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm ${
+                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm ${
                   !other && d.verifier === v.address ? "border-brand bg-brand-soft" : "border-line-strong hover:bg-surface-2"
                 }`}
               >
@@ -681,7 +686,7 @@ function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps
                 </span>
               </label>
             ))}
-            <label className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm ${other ? "border-brand bg-brand-soft" : "border-line-strong hover:bg-surface-2"}`}>
+            <label className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 text-sm ${other ? "border-brand bg-brand-soft" : "border-line-strong hover:bg-surface-2"}`}>
               <input
                 type="radio"
                 name="verifier"
@@ -710,7 +715,7 @@ function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps
           </Field>
         )}
         {!showInput && errors.verifier && (
-          <p className="text-sm text-danger" role="alert">
+          <p className="t-detail text-danger" role="alert">
             {errors.verifier}
           </p>
         )}
@@ -724,14 +729,14 @@ function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps
           <Row label="Precio">
             <Money amount={price} category={category} size="sm" /> por {category.unit.singular}
           </Row>
-          <Row label="Meta y máximo">
+          <Row label="Mínimo y máximo">
             {formatQty(Number(d.minUnits), category)} mínimo · {formatQty(Number(d.maxUnits), category)} máximo
           </Row>
           <Row label="Fechas">
             Cierre {sale ? formatDate(sale) : "—"} · Entrega hasta {deadline ? formatDate(deadline) : "—"}
           </Row>
           <Row label="Adelantos">{on.length ? on.map((m) => `${m.title} (${m.pct}%)`).join(", ") : "Ninguno: cobro contra entrega"}</Row>
-          <Row label="Verificador">{d.verifier ? shortAddress(d.verifier) : "—"}</Row>
+          <Row label="Verificador">{d.verifier ? (known.find((v) => v.address === d.verifier)?.name ?? shortAddress(d.verifier)) : "—"}</Row>
         </dl>
       </Section>
 
@@ -753,7 +758,7 @@ function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps
           </li>
           <li className="flex flex-wrap justify-between gap-2 text-ink-2">
             <span>
-              {formatPct(feeBps)} para el <Term k="fondo">fondo de garantía</Term>
+              {formatPct(feeBps)} para el <Term k="fondo">fondo común</Term>
             </span>
             <Money amount={flow.fee} category={category} size="sm" showBs={false} />
           </li>
@@ -762,8 +767,8 @@ function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps
             <Money amount={flow.totalNet} category={category} />
           </li>
         </ol>
-        <p className="text-sm text-ink-2">
-          Si no llegas a la meta de {formatQty(Number(d.minUnits), category)}, todos recuperan su dinero y tu reputación no cambia.
+        <p className="text-ink-2">
+          Si no llegas al mínimo de {formatQty(Number(d.minUnits), category)}, todos recuperan su dinero y tu reputación no cambia.
         </p>
       </Section>
 
@@ -833,12 +838,12 @@ function Published({ id, onAnother }: { id: bigint; onAnother: () => void }) {
       </div>
       {id >= BigInt(0) && (
         <div className="space-y-2">
-          <p className="text-sm font-medium">Avísale a tus compradores</p>
+          <p className="text-[0.9375rem] font-bold">Avísale a tus compradores</p>
           <ShareButton
             className="justify-center"
             path={`/campaign/${id.toString()}`}
-            title="Mi preventa en Pacta"
-            text="Abrí mi preventa en Pacta: compras hoy a precio fijo y tu pago queda protegido hasta que te entrego."
+            title="Mi preventa en Ayni"
+            text="Abrí mi preventa en Ayni: compras hoy a precio fijo y tu pago queda protegido hasta que te entrego."
           />
           <Link href={`/campaign/${id.toString()}/cartel`} className="btn-ghost">
             <Printer className="size-4" aria-hidden /> Imprimir un cartel con QR para tu puesto

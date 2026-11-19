@@ -6,7 +6,7 @@
 
 import { PollarProvider, usePollar } from "@pollar/react";
 import { Copy, History, Loader2, LogOut, Wallet as WalletIcon } from "lucide-react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { config } from "@/lib/config";
 import { buildXdr, friendlyError, waitForTx } from "@/lib/despensa";
 import { formatMoney, parseUsd, shortAddress } from "@/lib/format";
@@ -56,7 +56,7 @@ interface WalletContextValue {
   openHistory: () => void;
 }
 
-export const READ_ONLY_REASON = "Modo demostración: ves datos reales de Stellar testnet, pero todavía no se puede comprar ni firmar.";
+export const READ_ONLY_REASON = "Modo demostración: ves datos reales de Stellar testnet, pero todavía no se puede reservar ni firmar.";
 /** id of the one banner that explains read-only mode; disabled buttons point to it with aria-describedby. */
 export const READ_ONLY_ID = "read-only-note";
 
@@ -81,8 +81,8 @@ const WalletContext = createContext<WalletContextValue>({
 export const useWallet = () => useContext(WalletContext);
 
 const NOT_READY: Record<Exclude<WalletReadiness, "ready">, string> = {
-  preparing: "Tu billetera se está activando en Stellar. Espera unos segundos y vuelve a intentar.",
-  failed: "No se pudo activar tu billetera. Sal y vuelve a entrar.",
+  preparing: "Tu cuenta se está activando en Stellar. Espera unos segundos y vuelve a intentar.",
+  failed: "No se pudo activar tu cuenta. Sal y vuelve a entrar.",
 };
 
 function PollarBridge({ children }: { children: ReactNode }) {
@@ -212,16 +212,29 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 }
 
-/** Runs a contract call and exposes its phase for TxSteps. `onDone` runs once it is confirmed or pending. */
+/**
+ * Runs a contract call and exposes its phase for TxSteps. `onDone` runs once it is confirmed or pending,
+ * and again if a pending one is confirmed later.
+ *
+ * "Pendiente" and "Sin confirmar" with a hash keep being checked while this screen is open and the tab
+ * is visible, so they turn into "Completado" (or "Falló") by themselves; that is what the Pendiente
+ * message promises. `failedAt` is the step that was running when it failed, for the stepper.
+ */
 export function useAction() {
-  const { submit } = useWallet();
-  const [state, setState] = useState<{ phase: TxPhase; error?: string; hash?: string }>({ phase: "idle" });
+  const { submit, refreshBalance } = useWallet();
+  const [state, setState] = useState<{ phase: TxPhase; error?: string; hash?: string; failedAt?: TxPhase }>({ phase: "idle" });
+  const onDoneRef = useRef<(() => void) | undefined>(undefined);
 
   const run = useCallback(
     async (method: string, args: Record<string, unknown>, onDone?: () => void) => {
+      onDoneRef.current = onDone;
+      let last: TxPhase = "preparing";
       setState({ phase: "preparing" });
       try {
-        const r = await submit(method, args, (phase) => setState({ phase }));
+        const r = await submit(method, args, (phase) => {
+          last = phase;
+          setState({ phase });
+        });
         setState({ phase: r.settled ? "done" : "pending", hash: r.hash });
         onDone?.();
         return true;
@@ -232,12 +245,42 @@ export function useAction() {
           onDone?.();
           return false;
         }
-        setState({ phase: "error", error: friendlyError(e), hash: e instanceof TxFailedError ? e.hash : undefined });
+        setState({ phase: "error", error: friendlyError(e), hash: e instanceof TxFailedError ? e.hash : undefined, failedAt: last });
         return false;
       }
     },
     [submit],
   );
+
+  // Keep checking a pending transaction while the screen is open.
+  const { phase, hash } = state;
+  useEffect(() => {
+    if ((phase !== "pending" && phase !== "unconfirmed") || !hash) return;
+    let stop = false;
+    (async () => {
+      while (!stop) {
+        if (document.visibilityState === "visible") {
+          const s = await waitForTx(hash, 20_000);
+          if (stop) return;
+          if (s === "success") {
+            setState({ phase: "done", hash });
+            refreshBalance();
+            onDoneRef.current?.();
+            return;
+          }
+          if (s === "failed") {
+            setState({ phase: "error", error: "La red rechazó la operación.", hash, failedAt: "confirming" });
+            return;
+          }
+        }
+        await new Promise((r) => setTimeout(r, 5_000));
+      }
+    })();
+    return () => {
+      stop = true;
+    };
+  }, [phase, hash, refreshBalance]);
+
   const reset = useCallback(() => setState({ phase: "idle" }), []);
   const busy = state.phase === "preparing" || state.phase === "signing" || state.phase === "confirming";
   return { ...state, busy, run, reset };
@@ -263,7 +306,7 @@ export function WalletButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-line-strong px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-2"
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-line-strong px-3.5 text-[0.9375rem] font-bold text-ink hover:bg-surface-2"
         aria-haspopup="dialog"
       >
         {readiness === "preparing" ? (
@@ -280,50 +323,61 @@ export function WalletButton() {
 }
 
 function AccountDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Dialog open={open} onClose={onClose} title="Tu cuenta">
+      <AccountPanel onNavigate={onClose} />
+    </Dialog>
+  );
+}
+
+/**
+ * The signed-in account: balance, address (to receive test dollars), setup steps and Pollar's own
+ * screens. Used by the header's balance button and by the "Cuenta" tab. `onNavigate` closes the
+ * surrounding sheet first, because Pollar's modals stack above ours and focus must land in theirs.
+ */
+export function AccountPanel({ onNavigate }: { onNavigate: () => void }) {
   const { address, balance, disconnect, openWalletModal, openHistory } = useWallet();
   const [copied, setCopied] = useState(false);
   if (!address) return null;
   const copy = () => {
     navigator.clipboard?.writeText(address).then(() => setCopied(true), () => {});
   };
-  // Pollar's own modals stack above ours; close ours first so focus lands in theirs.
   const thenClose = (fn: () => void) => () => {
-    onClose();
+    onNavigate();
     fn();
   };
   return (
-    <Dialog open={open} onClose={onClose} title="Tu cuenta">
-      <div className="space-y-4">
-        <div>
-          <p className="text-sm text-ink-2">Saldo disponible</p>
-          <p className="text-2xl font-semibold tabular-nums">
-            {balance === null ? "…" : formatMoney(balance)} <span className="text-base text-ink-2">{config.tokenSymbol}</span>
-          </p>
-        </div>
-        <div>
-          <p className="text-sm text-ink-2">Dirección en Stellar (testnet)</p>
-          <button type="button" onClick={copy} className="mt-1 inline-flex max-w-full items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-left font-mono text-xs break-all">
-            {address}
-            <Copy className="size-4 shrink-0" aria-hidden />
-          </button>
-          <p className="mt-1 text-xs text-ink-2" role="status">
-            {copied ? "Copiada." : ""}
-          </p>
-        </div>
-        <TokenSetup />
-        <div className="grid gap-2">
-          <button type="button" className="btn btn-secondary w-full justify-start gap-2" onClick={thenClose(openWalletModal)}>
-            <WalletIcon className="size-4" aria-hidden /> Ver billetera
-          </button>
-          <button type="button" className="btn btn-secondary w-full justify-start gap-2" onClick={thenClose(openHistory)}>
-            <History className="size-4" aria-hidden /> Movimientos
-          </button>
-          <button type="button" className="btn btn-secondary w-full justify-start gap-2" onClick={thenClose(disconnect)}>
-            <LogOut className="size-4" aria-hidden /> Salir
-          </button>
-        </div>
+    <div className="space-y-4">
+      <div>
+        <p className="t-detail text-ink-2">Saldo disponible</p>
+        <p className="t-amount tabular-nums">
+          {balance === null ? "…" : formatMoney(balance)} <span className="font-sans text-base font-normal text-ink-2">dólares digitales ({config.tokenSymbol})</span>
+        </p>
       </div>
-    </Dialog>
+      <div>
+        <p className="t-detail text-ink-2">Tu dirección para recibir (Stellar testnet)</p>
+        <button type="button" onClick={copy} className="mt-1 inline-flex max-w-full items-center gap-2 rounded-sm bg-surface-2 px-3 py-2 text-left font-mono text-sm break-all">
+          {address}
+          <Copy className="size-4 shrink-0" aria-hidden />
+          <span className="sr-only">Copiar</span>
+        </button>
+        <p className="t-detail mt-1 text-ink-2" role="status">
+          {copied ? "Copiada." : ""}
+        </p>
+      </div>
+      <TokenSetup />
+      <div className="grid gap-2">
+        <button type="button" className="btn-secondary w-full justify-start" onClick={thenClose(openWalletModal)}>
+          <WalletIcon className="size-5" aria-hidden /> Ver saldo
+        </button>
+        <button type="button" className="btn-secondary w-full justify-start" onClick={thenClose(openHistory)}>
+          <History className="size-5" aria-hidden /> Movimientos
+        </button>
+        <button type="button" className="btn-ghost w-full justify-start" onClick={thenClose(disconnect)}>
+          <LogOut className="size-5" aria-hidden /> Salir
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -338,10 +392,10 @@ export function TokenSetup({ compact = false }: { compact?: boolean }) {
   if (!enabled || !address) return null;
 
   if (readiness === "preparing") {
-    return <Notice tone="info" icon={Loader2} title="Activando tu billetera">Pollar está creando tu cuenta en Stellar. Tarda unos segundos.</Notice>;
+    return <Notice tone="info" icon={Loader2} title="Activando tu cuenta">Estamos creando tu cuenta en Stellar. Tarda unos segundos.</Notice>;
   }
   if (readiness === "failed") {
-    return <Notice tone="danger" title="No se pudo activar tu billetera">Sal y vuelve a entrar. Si sigue, avísanos.</Notice>;
+    return <Notice tone="danger" title="No se pudo activar tu cuenta">Sal y vuelve a entrar. Si sigue, avísanos.</Notice>;
   }
   if (trustline === "missing") {
     const enable = async () => {
@@ -352,14 +406,14 @@ export function TokenSetup({ compact = false }: { compact?: boolean }) {
     return (
       <Notice
         tone="warning"
-        title={`Activa ${config.tokenSymbol} en tu billetera`}
+        title={`Activa los dólares digitales (${config.tokenSymbol}) en tu cuenta`}
         action={
           <button type="button" className="btn btn-sm" onClick={enable} disabled={busy}>
             {busy ? "Activando…" : "Activar"}
           </button>
         }
       >
-        Tu billetera todavía no acepta {config.tokenSymbol}. Activarlo es gratis.
+        Tu cuenta todavía no acepta dólares digitales. Activarlo es gratis.
         {error && <span className="mt-1 block text-danger">{error}</span>}
       </Notice>
     );
@@ -368,7 +422,7 @@ export function TokenSetup({ compact = false }: { compact?: boolean }) {
     return (
       <Notice
         tone="info"
-        title={`Tu billetera no tiene ${config.tokenSymbol}`}
+        title={`Tu cuenta no tiene dólares digitales (${config.tokenSymbol})`}
         action={
           <button type="button" className="btn btn-sm btn-secondary" onClick={refreshBalance}>
             Ya cargué

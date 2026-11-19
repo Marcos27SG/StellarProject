@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, ChevronDown, Clock, FileText, MapPin, MessageCircle, Printer } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Clock, Eye, FileText, MapPin, MessageCircle, Printer } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ActionList } from "@/components/ActionPanel";
@@ -47,7 +47,7 @@ export default function CampaignView({ id }: { id: string }) {
 
   if (!valid || item.error) {
     return (
-      <EmptyState title="No encontramos esta preventa" action={{ href: "/", label: "Volver al mercado" }}>
+      <EmptyState level={1} title="No encontramos esta preventa" action={{ href: "/", label: "Ver preventas" }}>
         {item.error ?? "El enlace no es válido."}
       </EmptyState>
     );
@@ -58,16 +58,21 @@ export default function CampaignView({ id }: { id: string }) {
   const h = holding.data ?? null;
   const acts = actionsForRoles(c, h, roles, now, { bond: bond.data, category, deliveries: pending.data });
   const buy = acts.buyer.find((a) => a.id === "buy");
-  const buyerRest = acts.buyer.filter((a) => a.id !== "buy");
+  // One primary action per screen. Each role's list comes with its own primary, so on a page where you
+  // are more than one role (a buyer who can also back the producer) the first role with something to
+  // do keeps it, in this order, and the others become secondary buttons.
+  const lists = [buy ? [buy] : [], acts.buyer.filter((a) => a.id !== "buy"), acts.seller, acts.verifier, acts.guarantor];
+  const owner = lists.findIndex((l) => l.some((a) => a.tone === "primary" && !a.disabled));
+  const [, buyerRest, sellerActs, verifierActs, guarantorActs] = lists.map((l, i) => (i === owner ? l : demote(l)));
   const hasHolding = !!h && h.units + h.pending + h.delivered + h.refunded > 0;
   const vouchers = address && h && hasHolding && (
-    <MyVouchers c={c} h={h} buyer={address} category={category} actions={buyerRest} now={now} disputeWindow={c.dispute_window} />
+    <MyVouchers c={c} h={h} buyer={address} category={category} actions={buyerRest} now={now} disputeWindow={c.dispute_window} meta={meta.meta} />
   );
 
   return (
     <div className="space-y-6">
       <Link href="/" className="btn-ghost -ml-3">
-        <ArrowLeft className="size-4" aria-hidden /> Mercado
+        <ArrowLeft className="size-5" aria-hidden /> Inicio
       </Link>
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -108,7 +113,7 @@ export default function CampaignView({ id }: { id: string }) {
             <h2 id="progress" className="h-section">
               Avance
             </h2>
-            <FundingBar c={c} category={category} size="lg" />
+            <FundingBar c={c} category={category} size="lg" now={now} />
             <Timeline c={c} category={category} />
           </section>
 
@@ -119,7 +124,7 @@ export default function CampaignView({ id }: { id: string }) {
           {roles.includes("seller") && (
             <RolePanel title="Tu campaña" subtitle="Eres el productor de esta preventa.">
               <SellerSummary c={c} category={category} pendingLoading={pending.loading} />
-              <ActionList actions={acts.seller} c={c} category={category} />
+              <ActionList actions={sellerActs} c={c} category={category} />
               <Link href={`/campaign/${c.id.toString()}/cartel`} className="btn-ghost -ml-3">
                 <Printer className="size-4" aria-hidden /> Imprimir un cartel con QR para tu puesto
               </Link>
@@ -128,11 +133,11 @@ export default function CampaignView({ id }: { id: string }) {
 
           {roles.includes("verifier") && (
             <RolePanel title="Verificación" subtitle={`Revisas la evidencia y decides las disputas como ${category.verifierLabel.toLowerCase()}.`}>
-              {pending.loading && <p className="text-sm text-ink-2">Buscando entregas pendientes y disputas…</p>}
-              {acts.verifier.length > 0 ? (
-                <ActionList actions={acts.verifier} c={c} category={category} />
+              {pending.loading && <p className="text-ink-2">Buscando entregas pendientes y disputas…</p>}
+              {verifierActs.length > 0 ? (
+                <ActionList actions={verifierActs} c={c} category={category} />
               ) : (
-                <p className="text-sm text-ink-2">Nada que revisar por ahora.</p>
+                <p className="text-ink-2">Nada que revisar por ahora.</p>
               )}
             </RolePanel>
           )}
@@ -153,7 +158,7 @@ export default function CampaignView({ id }: { id: string }) {
                 </>
               }
             >
-              <ActionList actions={acts.guarantor} c={c} category={category} />
+              <ActionList actions={guarantorActs} c={c} category={category} />
             </RolePanel>
           )}
 
@@ -181,12 +186,12 @@ function Gallery({ meta }: { meta: CampaignMetadata }) {
   return (
     <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={images[0]} alt={meta.description.slice(0, 80) || "Foto del producto"} className="h-56 w-full rounded-2xl object-cover sm:h-72" />
+      <img src={images[0]} alt={meta.description.slice(0, 80) || "Foto del producto"} className="h-56 w-full rounded-lg object-cover sm:h-72" />
       {images.length > 1 && (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-1 sm:grid-rows-2">
           {images.slice(1, 3).map((src) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={src} src={src} alt="" className="h-24 w-full rounded-2xl object-cover sm:h-full" loading="lazy" />
+            <img key={src} src={src} alt="" className="h-24 w-full rounded-lg object-cover sm:h-full" loading="lazy" />
           ))}
         </div>
       )}
@@ -239,12 +244,12 @@ function Details({ meta, category }: { meta: CampaignMetadata; category: Categor
       {points.length > 0 && (
         <div className="space-y-2">
           <h3 className="h-sub">Dónde se entrega</h3>
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-2">
             {points.map((p) => (
               <li key={p.name} className="flex gap-2">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-ink-2" aria-hidden />
+                <MapPin className="mt-1 size-[18px] shrink-0 text-ink-2" aria-hidden />
                 <span>
-                  <b className="font-medium">{p.name}</b>
+                  <b className="font-bold">{p.name}</b>
                   {p.address && <span className="text-ink-2"> · {p.address}</span>}
                   {p.schedule && <span className="block text-ink-2">{p.schedule}</span>}
                 </span>
@@ -279,7 +284,7 @@ function Milestones({ c, category }: { c: Campaign; category: CategoryDef }) {
         <h2 id="milestones" className="h-section">
           <Term k="hito">Hitos</Term> con adelanto
         </h2>
-        <p className="text-sm text-ink-2">
+        <p className="text-ink-2">
           Cada adelanto se paga solo si el verificador aprueba la evidencia. Aprobado hasta ahora: {formatPct(c.released_bps)}.
         </p>
       </div>
@@ -290,14 +295,14 @@ function Milestones({ c, category }: { c: Campaign; category: CategoryDef }) {
           return (
             <li key={i} className="flex items-start gap-3 py-3">
               <span
-                className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
                   state === "released" ? "bg-brand text-brand-ink" : state === "review" ? "bg-info-soft text-info" : "bg-surface-2 text-ink-2"
                 }`}
               >
                 {state === "released" ? <Check className="size-4" aria-hidden /> : state === "review" ? <Clock className="size-4" aria-hidden /> : i + 1}
               </span>
-              <div className="min-w-0 flex-1 space-y-0.5 text-sm">
-                <p className="font-semibold">
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <p className="font-bold">
                   {m.title} <span className="font-normal text-ink-2">· {formatPct(m.bps)}</span>
                 </p>
                 <p className="text-ink-2">
@@ -327,8 +332,10 @@ function OnChain({ c, category }: { c: Campaign; category: CategoryDef }) {
     <details className="group border-t border-line pt-6">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
         <span>
-          <span className="h-sub block">Datos en Stellar</span>
-          <span className="text-sm text-ink-2">Se leen en vivo del contrato. Nadie puede editarlos.</span>
+          <span className="h-sub flex items-center gap-1.5">
+            <Eye className="size-5 text-brand" aria-hidden /> Ver la prueba: los datos en Stellar
+          </span>
+          <span className="t-detail text-ink-2">Se leen en vivo del contrato. Nadie puede editarlos.</span>
         </span>
         <ChevronDown className="size-5 shrink-0 text-ink-2 transition group-open:rotate-180" aria-hidden />
       </summary>
@@ -344,7 +351,7 @@ function OnChain({ c, category }: { c: Campaign; category: CategoryDef }) {
         <Stat label="Por confirmar" value={<Qty n={c.pending} category={category} />} />
         <Stat label="Reembolsado" value={<Qty n={c.refunded} category={category} />} />
       </dl>
-      <p className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+      <p className="mt-5 flex flex-wrap gap-x-5 gap-y-1">
         <ExplorerLink path={`contract/${config.contractId}`}>Contrato {shortAddress(config.contractId)}</ExplorerLink>
         <ExplorerLink path={`account/${c.seller}`}>Productor {shortAddress(c.seller)}</ExplorerLink>
         <ExplorerLink path={`account/${c.verifier}`}>
@@ -358,7 +365,7 @@ function OnChain({ c, category }: { c: Campaign; category: CategoryDef }) {
 function SellerSummary({ c, category, pendingLoading }: { c: Campaign; category: CategoryDef; pendingLoading: boolean }) {
   if (c.status.tag !== "Active") return null;
   return (
-    <div className="space-y-1 text-sm text-ink-2">
+    <div className="space-y-1 text-ink-2">
       <p>
         Entregado: <b className="text-ink"><Qty n={c.delivered} category={category} /></b> de {c.sold}
         {c.pending > 0 && (
@@ -379,7 +386,7 @@ function RolePanel({ title, subtitle, children }: { title: string; subtitle?: Re
     <section className="card space-y-4 p-5">
       <div className="space-y-1">
         <h2 className="h-section">{title}</h2>
-        {subtitle && <p className="text-sm text-ink-2">{subtitle}</p>}
+        {subtitle && <p className="text-ink-2">{subtitle}</p>}
       </div>
       {children}
     </section>
@@ -395,16 +402,46 @@ function OpenActions({ actions, c, category }: { actions: Action[]; c: Campaign;
   );
 }
 
+/** Same shape as the page: header lines, the buy card, the bar and the timeline. */
 function CampaignSkeleton() {
-  return (
-    <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px]" aria-busy aria-label="Cargando la preventa">
-      <div className="space-y-4">
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-10 w-3/4" />
-        <Skeleton className="h-5 w-1/2" />
-        <Skeleton className="h-40 w-full rounded-2xl" />
-      </div>
-      <Skeleton className="hidden h-80 w-full rounded-2xl lg:block" />
+  const buy = (
+    <div className="card space-y-4 p-5" aria-hidden>
+      <Skeleton className="h-4 w-40" />
+      <Skeleton className="h-9 w-32" />
+      <Skeleton className="h-13 w-full rounded-md" />
+      <Skeleton className="h-13 w-full rounded-md" />
     </div>
   );
+  return (
+    <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px]" aria-busy aria-label="Cargando la preventa">
+      <div className="space-y-6">
+        <div className="space-y-3">
+          <Skeleton className="h-7 w-48 rounded-full" />
+          <Skeleton className="h-8 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+        <div className="lg:hidden">{buy}</div>
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-full rounded-full" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex gap-3">
+              <Skeleton className="size-8 shrink-0 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="hidden lg:block">{buy}</div>
+    </div>
+  );
+}
+
+function demote(list: Action[]): Action[] {
+  return list.map((a) => (a.tone === "primary" ? { ...a, tone: "default" as const } : a));
 }

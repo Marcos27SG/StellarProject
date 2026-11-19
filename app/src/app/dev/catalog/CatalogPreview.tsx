@@ -7,6 +7,7 @@ import { CampaignCard } from "@/components/CampaignCard";
 import { Money, Qty } from "@/components/Money";
 import { ProtectionExplainer } from "@/components/ProtectionExplainer";
 import { Timeline } from "@/components/Timeline";
+import { DesignSystem } from "./DesignSystem";
 import { nextActions } from "@/lib/actions";
 import { TIER_LABEL, toAmount, type Campaign, type Holding } from "@/lib/despensa";
 import { formatPct } from "@/lib/format";
@@ -93,7 +94,8 @@ export default function CatalogPreview() {
 
   return (
     <div className="space-y-10">
-      <header className="max-w-3xl space-y-2">
+      {now !== null && <DesignSystem now={now} />}
+      <header className="max-w-3xl space-y-2 border-t border-line pt-10">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-3">Solo en desarrollo</p>
         <h1 className="font-display text-3xl font-semibold">Catálogo de categorías</h1>
         <p className="text-ink-2">
@@ -130,7 +132,7 @@ export default function CatalogPreview() {
                     <Item label="Precio de muestra">
                       <Money amount={c.unit_price} category={cat} size="sm" />
                     </Item>
-                    <Item label="Meta total vendida">
+                    <Item label="Si se vende todo">
                       <Money amount={c.unit_price * BigInt(c.max_units)} category={cat} size="sm" />
                     </Item>
                     <Item label="Entrega">{cat.deliveryMode}{cat.perishable ? " · perecedero" : ""}</Item>
@@ -145,7 +147,7 @@ export default function CatalogPreview() {
                       <h3 className="mb-2 font-semibold">Atributos</h3>
                       <ul className="flex flex-wrap gap-2">
                         {cat.attributes.map((f) => (
-                          <li key={f.key} className="rounded-lg border border-line px-2 py-1 text-xs">
+                          <li key={f.key} className="rounded-sm border border-line px-2 py-1 text-xs">
                             <span className="text-ink-3">{f.label}:</span> {formatAttribute(f, meta.attributes[f.key])}
                             {f.required && <span className="text-danger"> *</span>}
                             {f.showOnCard && <span className="text-ink-3"> · en tarjeta</span>}
@@ -197,7 +199,7 @@ export default function CatalogPreview() {
                 </div>
               </div>
 
-              <details className="rounded-2xl">
+              <details className="rounded-lg">
                 <summary className="cursor-pointer text-sm text-ink-2">Ver explicación de protecciones</summary>
                 <div className="mt-3">
                   <ProtectionExplainer c={c} category={cat} pool={toAmount("125")} disputeWindow={3n * DAY} />

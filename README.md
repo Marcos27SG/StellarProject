@@ -1,11 +1,11 @@
-# Pacta
+# Ayni
 
 **Pre-sales of local products at a locked price, protected on Stellar.**
 Producers pre-sell (milk, eggs, quesillo, vegetable baskets…). Buyers' money is held in a Soroban contract, in dollars (USDC), and reaches the producer only when it is delivered. If the producer fails, buyers are refunded from what's left in escrow, the producer's bond and a community guarantee pool. Producers build on-chain reputation (streaks, ratings, tiers) that unlocks advances.
 
-Built for the **Stellar Bolivia 2026 National Startups Hackathon**. *No es una promesa. Es un pacto.*
+Built for the **Stellar Bolivia 2026 National Startups Hackathon**. *Lo que das, vuelve.*
 
-> **Naming.** The product was called *Despensa* until Nov 2026 and is now **Pacta**. Internal identifiers keep the old name so nothing deployed breaks: the `despensa/` folder, the `despensa` crate and wasm, `app/src/lib/despensa.ts`, `NEXT_PUBLIC_DESPENSA_CONTRACT_ID`, the metadata schema id `despensa.campaign/v1`, and the Stellar CLI identities `despensa-*`. Read [docs/DESIGN.md](docs/DESIGN.md) for the full mechanism and research.
+> **Naming.** The product was called *Despensa*, then *Pacta*, and since 18 Nov 2026 is **Ayni** (the Andean principle of reciprocity). Internal identifiers keep the old name so nothing deployed breaks: the `despensa/` folder, the `despensa` crate and wasm, `app/src/lib/despensa.ts`, `NEXT_PUBLIC_DESPENSA_CONTRACT_ID`, the metadata schema id `despensa.campaign/v1`, and the Stellar CLI identities `despensa-*`. Read [docs/DESIGN.md](docs/DESIGN.md) for the full mechanism and research.
 
 ## Status
 
@@ -92,7 +92,7 @@ Pages:
 1. Create an app on testnet and copy the publishable key into `app/.env.local`.
 2. Under Developers → Websites, add `http://localhost:3000` to both Allowed origins and Allowed redirect URIs.
 3. Under Wallets → Tokens, enable testnet USDC (issuer `GBBD47…FLA5`, not the mainnet `GA5Z…`). The current deployment already settles in it.
-4. Under Wallets → Sponsored fees → contract rules, add the Pacta contract so users pay zero fees.
+4. Under Wallets → Sponsored fees → contract rules, add the Ayni contract so users pay zero fees.
 5. Testnet USDC comes from [faucet.circle.com](https://faucet.circle.com).
 
 ## Ecosystem integrations

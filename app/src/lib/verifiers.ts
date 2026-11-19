@@ -16,7 +16,7 @@ export interface KnownVerifier {
 const TESTNET: KnownVerifier[] = [
   {
     address: "GDVZDGLLY2COW6VGW6GT5A47KWHWNVIE3YQ2THQV6IZWTSCR6DISG2AN",
-    name: "Verificador de prueba de Pacta",
+    name: "Verificador de prueba de Ayni",
     note: "Cuenta de demostración en testnet. En producción sería una asociación o cooperativa.",
   },
 ];

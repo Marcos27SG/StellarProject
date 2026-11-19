@@ -13,31 +13,31 @@ export interface FailureLike {
 }
 
 const CODES: Record<string, string> = {
-  SDK_WALLET_NOT_READY: "Tu billetera se está activando en Stellar. Espera unos segundos y vuelve a intentar.",
-  SDK_WALLET_REQUIRED: "Tu cuenta todavía no tiene billetera. Sal y vuelve a entrar.",
-  SDK_WALLET_PROVISIONING_FAILED: "No se pudo activar tu billetera. Sal y vuelve a entrar; si sigue, avísanos.",
-  SDK_WALLET_RECOVERY_REQUIRED: "Tu billetera necesita un método de recuperación antes de firmar.",
+  SDK_WALLET_NOT_READY: "Tu cuenta se está activando en Stellar. Espera unos segundos y vuelve a intentar.",
+  SDK_WALLET_REQUIRED: "Tu cuenta todavía no está lista. Sal y vuelve a entrar.",
+  SDK_WALLET_PROVISIONING_FAILED: "No se pudo activar tu cuenta. Sal y vuelve a entrar; si sigue, avísanos.",
+  SDK_WALLET_RECOVERY_REQUIRED: "Tu cuenta necesita un método de recuperación antes de firmar.",
   SDK_NETWORK_TIMEOUT: "La conexión tardó demasiado. Revisa tu internet y vuelve a intentar.",
   SDK_CONFIRMATION_DECLINED: "Cancelaste la firma. No se movió nada.",
   SDK_CREDITS_INSUFFICIENT: "El servicio de firmas no está disponible ahora mismo. Intenta más tarde.",
   SDK_BILLING_OVERDUE: "El servicio de firmas no está disponible ahora mismo. Intenta más tarde.",
   RATE_LIMITED: "Demasiados intentos seguidos. Espera un minuto y vuelve a intentar.",
-  TX_INSUFFICIENT_BALANCE: "No tienes saldo suficiente en tu billetera.",
-  TX_NO_TRUSTLINE: "Tu billetera todavía no acepta USDC. Actívalo desde el menú de tu cuenta.",
+  TX_INSUFFICIENT_BALANCE: "No tienes saldo suficiente en tu cuenta.",
+  TX_NO_TRUSTLINE: "Tu cuenta todavía no acepta USDC. Actívalo desde el menú de tu cuenta.",
   TX_INSUFFICIENT_FEE: "La red está congestionada. Vuelve a intentar en un momento.",
   TX_FEE_LIMIT_EXCEEDED: "La red está congestionada. Vuelve a intentar en un momento.",
   TX_BAD_SEQUENCE: "Otra operación tuya se cruzó con esta. Vuelve a intentar.",
   TX_TOO_LATE: "La operación venció antes de llegar a la red. Vuelve a intentar.",
-  TX_SOURCE_NOT_FOUND: "Tu billetera todavía no existe en Stellar. Espera unos segundos y vuelve a intentar.",
-  TX_LOW_RESERVE: "Tu billetera no tiene la reserva mínima de XLM.",
-  TX_NOT_AUTHORIZED: "Tu billetera no tiene permiso para esta operación.",
+  TX_SOURCE_NOT_FOUND: "Tu cuenta todavía no existe en Stellar. Espera unos segundos y vuelve a intentar.",
+  TX_LOW_RESERVE: "Tu cuenta no tiene la reserva mínima de XLM.",
+  TX_NOT_AUTHORIZED: "Tu cuenta no tiene permiso para esta operación.",
 };
 
 // Stellar transaction result codes (Pollar passes them through in resultCode, details or message).
 const RESULT_CODES: [RegExp, string][] = [
   [
     /txInsufficientBalance/,
-    "Tu billetera no tiene XLM para la comisión de red y esta operación no está patrocinada. (Pollar: Sponsored fees → contract rules.)",
+    "Tu cuenta no tiene XLM para la comisión de red y esta operación no está patrocinada. (Pollar: Sponsored fees → contract rules.)",
   ],
   [/txInsufficientFee/, CODES.TX_INSUFFICIENT_FEE],
   [/txBadSeq/, CODES.TX_BAD_SEQUENCE],

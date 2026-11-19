@@ -22,7 +22,7 @@ export default function VerifyPage() {
 
   if (!address) {
     return (
-      <EmptyState icon={<Scale className="size-10" />} title="Panel del verificador">
+      <EmptyState level={1} icon={<Scale className="size-10" />} title="Panel del verificador">
         <p className="mb-4">
           Si una asociación, cooperativa o ingeniero te eligió como <Term k="verificador">verificador</Term>, aquí revisas la evidencia de los
           hitos y decides las disputas. Nunca puedes quedarte con el dinero: solo decides si va al productor o vuelve al comprador.
@@ -71,7 +71,12 @@ export default function VerifyPage() {
           {list.error}
         </Notice>
       )}
-      {!list.data && !list.error && <Skeleton className="h-48 w-full rounded-2xl" />}
+      {!list.data && !list.error && (
+        <div className="space-y-3" aria-busy aria-label="Cargando">
+          <Skeleton className="h-28 w-full rounded-lg" />
+          <Skeleton className="h-28 w-full rounded-lg" />
+        </div>
+      )}
 
       {list.data && mine.length === 0 && (
         <EmptyState icon={<Scale className="size-10" />} title="No verificas ninguna campaña">
@@ -123,10 +128,10 @@ function InboxCard({ item: { c, meta, category } }: { item: CampaignItem }) {
         <div className="flex min-w-0 gap-3">
           <CategoryTile category={category} />
           <div className="min-w-0">
-            <Link href={`/campaign/${c.id.toString()}`} className="font-display text-lg font-semibold underline underline-offset-2 hover:no-underline">
+            <Link href={`/campaign/${c.id.toString()}`} className="t-subtitle underline underline-offset-2 hover:no-underline">
               {c.title}
             </Link>
-            <p className="text-sm text-ink-2">
+            <p className="text-ink-2">
               {meta.meta.producer.displayName || `Productor ${shortAddress(c.seller)}`} · entrega hasta {formatDate(c.delivery_deadline)} · aval{" "}
               <Money amount={c.bond_total} category={category} size="sm" showBs={false} />
             </p>
@@ -139,7 +144,7 @@ function InboxCard({ item: { c, meta, category } }: { item: CampaignItem }) {
 
       {approvals.length > 0 && (
         <div className="space-y-3">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <h3 className="flex items-center gap-2 text-sm font-bold">
             <ClipboardCheck className="size-4 text-brand" aria-hidden /> <Term k="hito">Hitos</Term> por revisar
           </h3>
           <ul className="space-y-3">
@@ -148,9 +153,9 @@ function InboxCard({ item: { c, meta, category } }: { item: CampaignItem }) {
               const href = safeHref(m.evidence);
               const hint = category.milestoneTemplates.find((t) => t.title === m.title)?.evidenceHint;
               return (
-                <li key={a.milestoneIndex} className="space-y-3 rounded-xl bg-surface-2 p-4">
+                <li key={a.milestoneIndex} className="space-y-3 rounded-md bg-surface-2 p-4">
                   <div className="space-y-1 text-sm">
-                    <p className="font-medium">
+                    <p className="font-bold">
                       {m.title} <span className="font-normal text-ink-3">· adelanto del {formatPct(m.bps)}</span>
                     </p>
                     {hint && <p className="text-ink-2">Se espera: {hint}</p>}
@@ -176,15 +181,15 @@ function InboxCard({ item: { c, meta, category } }: { item: CampaignItem }) {
 
       {(disputes.length > 0 || pending.loading) && (
         <div className="space-y-3">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <h3 className="flex items-center gap-2 text-sm font-bold">
             <Gavel className="size-4 text-danger" aria-hidden /> <Term k="disputa">Disputas</Term>
           </h3>
-          {pending.loading && <p className="text-sm text-ink-2">Buscando disputas en los eventos del contrato…</p>}
+          {pending.loading && <p className="text-ink-2">Buscando disputas en los eventos del contrato…</p>}
           <ul className="space-y-3">
             {disputes.map((a, i) => {
               const d = pending.data?.find((x) => x.buyer === a.buyer);
               return (
-                <li key={a.buyer ?? `manual-${i}`} className="space-y-3 rounded-xl bg-danger-soft p-4 text-sm">
+                <li key={a.buyer ?? `manual-${i}`} className="space-y-3 rounded-md bg-warning-soft p-4">
                   {d ? (
                     <p>
                       El comprador <span className="font-mono">{shortAddress(d.buyer)}</span> dice que no recibió{" "}
@@ -201,11 +206,11 @@ function InboxCard({ item: { c, meta, category } }: { item: CampaignItem }) {
         </div>
       )}
 
-      {nothing && <p className="text-sm text-ink-2">Nada pendiente en esta campaña.</p>}
+      {nothing && <p className="text-ink-2">Nada pendiente en esta campaña.</p>}
 
       {declare.length > 0 && (
         <details className="border-t border-line pt-3">
-          <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-ink-2">Si el productor desapareció o hubo fraude</summary>
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-bold text-ink-2">Si el productor desapareció o hubo fraude</summary>
           <div className="mt-3">
             <ActionList actions={declare} c={c} category={category} />
           </div>
