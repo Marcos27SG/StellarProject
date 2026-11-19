@@ -38,6 +38,7 @@ import { MoneyStatus, AffixInput, CampaignCardSkeleton, Dialog, EmptyState, Fiel
 import { Stars, StatusPill, Streak, TierBadge, TierLadder, VOUCHER_STATUS, VoucherPill, type VoucherState } from "@/components/badges";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { FundingBar } from "@/components/FundingBar";
+import { HandoffStatus } from "@/components/Handoff";
 import { ApartmentIcon, BasketIcon, CoffeeIcon, CrateIcon, EggIcon, MilkIcon, PoolIcon } from "@/components/icons";
 import { AyniMark, Logo } from "@/components/Logo";
 import { Money } from "@/components/Money";
@@ -307,6 +308,14 @@ export function DesignSystem({ now }: { now: bigint }) {
       <Section title="Checkout y acciones (con datos de muestra)">
         <CheckoutDemo now={now} open={(a, c) => setDialog({ a, c })} />
         {dialog && <ActionDialog action={dialog.a} c={dialog.c} category={milk} onClose={() => setDialog(null)} />}
+      </Section>
+
+      <Section title="Entrega en dos teléfonos (lado del productor)">
+        <div className="grid max-w-4xl items-start gap-4 sm:grid-cols-3">
+          <HandoffStatus watch={{ delivered: 0 }} h={{ delivered: 0, pending: 2, disputed: false }} category={milk} unitPrice={toAmount("0.9")} releasedBps={0} feeBps={200} verifier="el verificador" windowLeft={3 * 86_400} />
+          <HandoffStatus key={replay} watch={{ delivered: 0 }} h={{ delivered: 2, pending: 0, disputed: false }} category={milk} unitPrice={toAmount("0.9")} releasedBps={0} feeBps={200} verifier="el verificador" windowLeft={null} />
+          <HandoffStatus watch={{ delivered: 0 }} h={{ delivered: 0, pending: 2, disputed: true }} category={milk} unitPrice={toAmount("0.9")} releasedBps={0} feeBps={200} verifier="Verificador de prueba de Ayni" windowLeft={null} />
+        </div>
       </Section>
 
       <Section title="Hoja, diálogo, avisos y consejos">

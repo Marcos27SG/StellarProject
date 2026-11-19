@@ -3,7 +3,7 @@
 // Opened by scanning the buyer's voucher QR with the producer's phone camera
 // (/producer/deliver?campaign=<id>&buyer=<G…>&units=<n>). Big targets: used outdoors, at a market stall.
 
-import { Gavel, LoaderCircle, PackageCheck, QrCode } from "lucide-react";
+import { PackageCheck, QrCode } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -11,12 +11,14 @@ import { copy } from "@/catalog";
 import { Stepper } from "@/components/ActionPanel";
 import { StatusPill } from "@/components/badges";
 import { CategoryIcon } from "@/components/CategoryIcon";
-import { Money } from "@/components/Money";
-import { EmptyState, MoneyStatus, Notice, Skeleton, Stat, TxSteps } from "@/components/ui";
+import { BUSY_LABEL, EmptyState, Notice, Skeleton, Spinner, Stat, TxSteps } from "@/components/ui";
+import { voucherCode } from "@/components/VoucherTicket";
+import { HandoffStatus } from "@/components/Handoff";
 import { useAction, useWallet } from "@/components/Wallet";
 import { argsFor, nextActions, successMessage } from "@/lib/actions";
 import { isValidAddress } from "@/lib/despensa";
-import { formatDuration, formatQty, shortAddress } from "@/lib/format";
+import { formatQty, shortAddress } from "@/lib/format";
+import { KNOWN_VERIFIERS } from "@/lib/verifiers";
 import { invalidateCampaign, useCampaignItem, useContractConfig, useHolding, useNow, usePolling } from "@/lib/hooks";
 
 function Deliver() {
@@ -49,9 +51,18 @@ function Deliver() {
   if (item.error) return <EmptyState title="No encontramos la preventa">{item.error}</EmptyState>;
   if (!item.data || !holding.data) {
     return (
-      <div className="mx-auto max-w-md space-y-3">
+      <div className="mx-auto max-w-md space-y-4" aria-busy aria-label="Cargando la entrega">
+        <Skeleton className="h-4 w-32" />
         <Skeleton className="h-8 w-2/3" />
-        <Skeleton className="h-48 w-full rounded-lg" />
+        <Skeleton className="h-9 w-40 rounded-full" />
+        <div className="card space-y-4 p-5">
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+          </div>
+          <Skeleton className="h-13 w-full rounded-md" />
+          <Skeleton className="h-13 w-full rounded-md" />
+        </div>
       </div>
     );
   }
@@ -73,18 +84,23 @@ function Deliver() {
   return (
     <div className="mx-auto max-w-md space-y-6">
       <header className="space-y-2">
-        <p className="inline-flex items-center gap-1.5 text-sm text-ink-2">
-          <CategoryIcon category={category} className="size-4" /> {category.label}
+        <p className="inline-flex items-center gap-1.5 text-ink-2">
+          <CategoryIcon category={category} className="size-5" /> {category.label}
         </p>
         <h1 className="h-page">
           {capitalize(copy(category, "deliveryVerb"))} a {shortAddress(buyer)}
         </h1>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-ink-2">
+        <div className="flex flex-wrap items-center gap-2 text-ink-2">
           <Link href={`/campaign/${c.id.toString()}`} className="underline underline-offset-2 hover:no-underline">
             {c.title}
           </Link>
           <StatusPill c={c} />
         </div>
+        {/* The same code the buyer's voucher shows: both phones can see they match. */}
+        <p className="inline-flex items-center gap-2 rounded-full bg-surface-2 px-3.5 py-1.5">
+          <span className="t-label text-ink-2">Código del vale</span>
+          <span className="font-mono text-lg font-bold">{voucherCode(c.id, buyer)}</span>
+        </p>
       </header>
 
       <section className="card space-y-5 p-5">
@@ -99,7 +115,7 @@ function Deliver() {
               Entrar como productor
             </button>
           ) : (
-            <p className="text-sm text-ink-2">Para registrar la entrega hace falta iniciar sesión, que no está disponible en esta demo.</p>
+            <p className="text-ink-2">Para registrar la entrega hace falta iniciar sesión, que no está disponible en esta demo.</p>
           )
         ) : !isSeller ? (
           <Notice tone="danger">Solo el productor de esta preventa puede registrar la entrega.</Notice>
@@ -107,14 +123,17 @@ function Deliver() {
           <>
             {deliver && max > 0 ? (
               <div className="space-y-3">
-                <p className="text-sm font-medium">¿Cuánto entregas ahora?</p>
-                <div className="flex items-center justify-between gap-3">
-                  <Stepper value={qty} onChange={setUnits} step={1} max={max} />
-                  <span className="text-sm text-ink-2">de {formatQty(max, category)}</span>
+                <p id="deliver-qty" className="text-[0.9375rem] font-bold">
+                  ¿Cuánto entregas ahora?
+                </p>
+                <div role="group" aria-labelledby="deliver-qty" className="space-y-1.5">
+                  <Stepper value={qty} onChange={setUnits} step={1} max={max} unit={qty === 1 ? category.unit.singular : category.unit.plural} />
+                  <p className="t-detail text-ink-2">de {formatQty(max, category)} por recibir</p>
                 </div>
                 <button
                   className="btn btn-lg w-full"
                   disabled={tx.busy}
+                  aria-busy={tx.busy}
                   onClick={() => {
                     const base = { delivered: h.delivered };
                     tx.run("mark_delivered", argsFor(deliver, c.id, address, { address: buyer, units: qty }), () => {
@@ -123,15 +142,23 @@ function Deliver() {
                     });
                   }}
                 >
-                  <PackageCheck className="size-5" aria-hidden /> Entregué {formatQty(qty, category)}
+                  {tx.busy ? (
+                    <>
+                      <Spinner /> {BUSY_LABEL[tx.phase]}
+                    </>
+                  ) : (
+                    <>
+                      <PackageCheck className="size-5" aria-hidden /> Entregué {formatQty(qty, category)}
+                    </>
+                  )}
                 </button>
-                <p className="text-sm text-ink-2">
+                <p className="text-ink-2">
                   El comprador puede confirmar desde su teléfono y cobras al instante. Si no confirma ni disputa, cobras al terminar el plazo de
                   disputa.
                 </p>
               </div>
             ) : (
-              <p className="text-sm text-ink-2">
+              <p className="text-ink-2">
                 {c.status.tag === "Active" ? "Este comprador no tiene más por recibir." : "Esta preventa no está en etapa de entrega."}
               </p>
             )}
@@ -154,69 +181,13 @@ function Deliver() {
             unitPrice={c.unit_price}
             releasedBps={c.released_bps}
             feeBps={cfg.data?.fee_bps ?? 200}
+            verifier={KNOWN_VERIFIERS.find((v) => v.address === c.verifier)?.name ?? "el verificador"}
             windowLeft={h.pending > 0 ? Number(h.pending_since + c.dispute_window - now) : null}
           />
         ) : (
-          <TxSteps phase={tx.phase} error={tx.error} hash={tx.hash} success={deliver ? successMessage(deliver, category) : undefined} />
+          <TxSteps phase={tx.phase} error={tx.error} hash={tx.hash} failedAt={tx.failedAt} success={deliver ? successMessage(deliver, category) : undefined} />
         )}
       </section>
-    </div>
-  );
-}
-
-/** What happened after "Entregué": waiting for the buyer, confirmed (paid), or disputed. */
-function HandoffStatus({
-  watch,
-  h,
-  category,
-  unitPrice,
-  releasedBps,
-  feeBps,
-  windowLeft,
-}: {
-  watch: { delivered: number };
-  h: { delivered: number; pending: number; disputed: boolean };
-  category: import("@/catalog").CategoryDef;
-  unitPrice: bigint;
-  releasedBps: number;
-  feeBps: number;
-  windowLeft: number | null;
-}) {
-  const confirmed = h.delivered - watch.delivered;
-  if (confirmed > 0) {
-    // Same arithmetic as the contract: the unpaid share of the price, minus the fee for the pool.
-    const gross = (BigInt(confirmed) * unitPrice * BigInt(10_000 - releasedBps)) / BigInt(10_000);
-    const net = gross - (gross * BigInt(feeBps)) / BigInt(10_000);
-    return (
-      <div className="space-y-2 rounded-lg bg-success-soft p-4" role="status" aria-live="polite">
-        <MoneyStatus state="completed" label="Cobrado" />
-        <p className="text-lg font-semibold">El comprador confirmó</p>
-        <p className="text-sm text-ink-2">
-          Recibió {formatQty(confirmed, category)}. Cobraste <Money amount={net} category={category} size="sm" />.
-        </p>
-      </div>
-    );
-  }
-  if (h.disputed) {
-    return (
-      <div className="space-y-2 rounded-lg bg-danger-soft p-4" role="status" aria-live="polite">
-        <p className="flex items-center gap-2 font-semibold text-danger">
-          <Gavel className="size-5" aria-hidden /> El comprador abrió una disputa
-        </p>
-        <p className="text-sm text-ink-2">El pago queda congelado hasta que el verificador decida.</p>
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-2 rounded-lg bg-info-soft p-4" role="status" aria-live="polite">
-      <MoneyStatus state="pending" label="Pago pendiente" />
-      <p className="flex items-center gap-2 font-semibold">
-        <LoaderCircle className="size-5 animate-spin text-brand" aria-hidden /> Esperando que el comprador confirme…
-      </p>
-      <p className="text-sm text-ink-2">
-        Le aparece en su teléfono ahora mismo.
-        {windowLeft !== null && windowLeft > 0 && <> Si no confirma ni disputa, cobras solo en {formatDuration(windowLeft)}.</>}
-      </p>
     </div>
   );
 }
