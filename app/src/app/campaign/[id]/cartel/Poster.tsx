@@ -33,10 +33,10 @@ export default function Poster({ id }: { id: string }) {
     <div className="space-y-4">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 print:hidden">
         <Link href={`/campaign/${c.id.toString()}`} className="btn-ghost -ml-3">
-          <ArrowLeft className="size-4" aria-hidden /> Volver a la preventa
+          <ArrowLeft className="size-5" aria-hidden /> Volver a la preventa
         </Link>
-        <button type="button" className="btn" onClick={() => window.print()}>
-          <Printer className="size-4" aria-hidden /> Imprimir
+        <button type="button" className="btn btn-lg" onClick={() => window.print()}>
+          <Printer className="size-5" aria-hidden /> Imprimir
         </button>
       </div>
 
@@ -44,33 +44,36 @@ export default function Poster({ id }: { id: string }) {
       <article className="theme-light mx-auto max-w-3xl space-y-6 rounded-lg border-2 border-brand bg-surface p-8 text-ink sm:p-12 print:max-w-none print:rounded-none print:border-0 print:p-0">
         <header className="flex items-center justify-between gap-4">
           <Logo size="lg" />
-          <p className="rounded-full bg-brand-soft px-3 py-1 text-sm font-semibold text-brand">Preventa protegida</p>
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-3.5 py-1.5 font-bold text-brand">
+            <ShieldCheck className="size-5" aria-hidden /> Preventa protegida
+          </p>
         </header>
 
         <div className="space-y-2">
-          <p className="inline-flex items-center gap-2 text-base text-ink-2">
-            <CategoryIcon category={category} className="size-5" /> {category.label}
+          <p className="inline-flex items-center gap-2 text-lg text-ink-2">
+            <CategoryIcon category={category} className="size-6 text-brand" /> {category.label}
             {producer && <> · {producer}</>}
           </p>
-          <h1 className="font-display text-4xl font-semibold leading-tight sm:text-5xl">{c.title}</h1>
+          <h1 className="t-display sm:text-5xl sm:leading-[3.5rem]">{c.title}</h1>
           <p className="text-lg text-ink-2">{copy(category, "tagline")}</p>
         </div>
 
         <div className="grid items-center gap-8 sm:grid-cols-[1fr_auto]">
           <div className="space-y-5">
             <p>
-              <span className="block text-6xl font-semibold tracking-tight">
-                <span className="text-3xl font-medium text-ink-2">{CURRENCY}</span> {formatUsd(c.unit_price, d)}
+              <span className="block font-display text-6xl leading-none font-extrabold tabular-nums [font-stretch:110%] sm:text-7xl">
+                {CURRENCY} {formatUsd(c.unit_price, d)}
               </span>
               <span className="text-lg text-ink-2">
                 por {category.unit.singular} · ≈ Bs {formatBs(c.unit_price, d)} · precio bloqueado
               </span>
             </p>
-            <ul className="space-y-3 text-base">
+            <ul className="space-y-3 text-lg">
               <li className="flex gap-3">
                 <ShieldCheck className="size-6 shrink-0 text-brand" aria-hidden />
                 <span>
-                  <b>Tu pago queda guardado</b> en un contrato de Stellar. El productor cobra recién cuando recibes.
+                  <b>Tu pago queda guardado</b> en un contrato público de Stellar. El productor cobra cuando recibes
+                  {c.milestones.length > 0 ? " (salvo adelantos que aprueba un verificador)." : "."}
                 </span>
               </li>
               <li className="flex gap-3">
@@ -98,13 +101,15 @@ export default function Poster({ id }: { id: string }) {
           </div>
 
           <figure className="flex flex-col items-center gap-2 justify-self-center">
-            {origin ? <QRCodeSVG value={url} size={240} level="M" marginSize={2} /> : <div className="size-[240px]" />}
-            <figcaption className="max-w-[240px] text-center text-base font-semibold">Escanea con la cámara de tu teléfono para reservar</figcaption>
+            <div className="rounded-md border border-line bg-surface">
+              {origin ? <QRCodeSVG value={url} size={260} level="M" marginSize={3} /> : <div className="size-[260px]" />}
+            </div>
+            <figcaption className="max-w-[260px] text-center text-lg font-bold">Escanea con la cámara de tu teléfono para reservar</figcaption>
           </figure>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-sm text-ink-2">
-          <span>Compra hasta el {formatDate(c.sale_end)} · Pagas en dólares digitales</span>
+        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-ink-2">
+          <span>Reserva hasta el {formatDate(c.sale_end)} · Pagas en dólares digitales · Lo que das, vuelve.</span>
           <span className="font-mono">{origin.replace(/^https?:\/\//, "")}/campaign/{c.id.toString()}</span>
         </footer>
       </article>

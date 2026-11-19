@@ -81,11 +81,11 @@ A document that fails to load or validate renders with the fallback and a "detal
 
 | Route | What |
 |---|---|
-| `/` | Marketplace: category chips, search, status filter, sorting, escrow and pool totals |
+| `/` | Inicio (marketplace): category chips, search, status filter, sorting, campaign cards |
 | `/campaign/[id]` | Campaign: share (WhatsApp / native share sheet), protections with real numbers, timeline, milestones, transparency, buyer / producer / verifier / guarantor panels. Server-side `generateMetadata` gives link previews their title, price and protection line |
 | `/campaign/[id]/cartel` | Printable stall poster: price, protections, big QR to the campaign |
 | `/me` | Mis vales: vouchers grouped by what needs doing (confirm, pick up, refund, rate) |
-| `/producer` | Producer dashboard: reputation and tier progress, campaigns with "acción pendiente" badges |
+| `/producer` | "Mi puesto", the producer dashboard: reputation (tier, stars, streak, tier tiles) and progress, campaigns with "Te toca" badges |
 | `/producer/new` | Create wizard (5 steps); validation mirrors `create_campaign` |
 | `/producer/deliver` | Opened by scanning a buyer's QR: register a delivery, then watch live until the buyer confirms ("Cobraste X") or disputes |
 | `/verify` | Verifier inbox: milestones to review and open disputes |
@@ -100,7 +100,13 @@ The delivery happens on two phones. `usePolling` (in `lib/hooks.ts`) refreshes o
 - buyer (campaign page, Mis vales): the holding, every 6 to 8 s while they hold vouchers in a live campaign, so "¿Recibiste…?" appears as soon as the producer registers the delivery;
 - producer (delivery page): the buyer's holding, every 5 s after "Entregué", until it is confirmed, disputed or settled.
 
-The header shows a count on **Mis vales** when deliveries wait for confirmation or refunds wait to be claimed.
+**Mis vales** shows an amber dot (phones) or a count (header) when deliveries wait for confirmation or refunds wait to be claimed.
+
+Both phones show the voucher's code (`voucherCode`, `AYN-{campaign}-{last 4 of the buyer}`), so buyer and producer can see they're looking at the same voucher. When the buyer confirms, the producer's screen shows "Cobraste $us X" with la puntada (`HandoffStatus`).
+
+## Navigation
+
+Phones (under 768 px) get a bottom tab bar: **Inicio · Mis vales · Mi puesto · Cuenta** (elevation 2). It hides on `/campaign/*` (the page has its own fixed "Reservar" bar, and the poster is for printing) and on `/producer/deliver` (the hand-off needs the whole screen). "Cuenta" opens a sheet with the account (balance, address, Pollar's screens, sign out) or "Entrar con Google", and links to Verificar (verifiers only), the public profile and Transparencia. From 768 px the same places sit in the header next to the balance button. The tab bar sets `--bottom-bar`, which toasts use to stay above it. "Avisos" from the board is left out: the app has no notifications.
 
 ## Verifiers
 
