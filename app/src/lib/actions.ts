@@ -254,6 +254,8 @@ function buyerActions(c: Campaign, h: Holding | null, ctx: ActionContext): Actio
           label: "No recibí: abrir disputa",
           description: "Congela el pago hasta que un verificador independiente decida.",
           confirm: "Abre una disputa solo si no recibiste lo que dice el productor.",
+          // Only the verifier can close a dispute: the buyer can't withdraw it.
+          irreversible: true,
           tone: "danger",
         });
       }
