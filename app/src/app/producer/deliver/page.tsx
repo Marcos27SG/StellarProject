@@ -42,7 +42,7 @@ function Deliver() {
   if (!ok) {
     return (
       <EmptyState icon={<QrCode className="size-10" />} title="Este código QR no es válido" action={{ href: "/producer", label: "Ir a mi panel" }}>
-        Pide al comprador que vuelva a abrir su vale en Pacta y escanea el código otra vez.
+        Pide al comprador que vuelva a abrir su vale en Ayni y escanea el código otra vez.
       </EmptyState>
     );
   }

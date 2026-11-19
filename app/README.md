@@ -1,4 +1,4 @@
-# Pacta web app
+# Ayni web app
 
 Next.js 15 + Tailwind 4 + Pollar (`@pollar/react`) + Stellar JS SDK. Spanish UI.
 

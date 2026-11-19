@@ -203,7 +203,7 @@ export function validateStep(step: WizardStep, d: CampaignDraft, ctx: Validation
       const v = d.verifier.trim();
       if (!ctx.isAddress(v)) e.verifier = "Ingresa la dirección de Stellar del verificador (empieza con G…).";
       else if (ctx.me && v === ctx.me) e.verifier = "El verificador tiene que ser otra persona o institución.";
-      else if (ctx.verifierAllowed === false) e.verifier = "Este verificador no está autorizado en Pacta. Elige uno de la lista o pide que lo autoricen.";
+      else if (ctx.verifierAllowed === false) e.verifier = "Este verificador no está autorizado en Ayni. Elige uno de la lista o pide que lo autoricen.";
       const size = inlineEstimate(d);
       if (size > INLINE_HARD_LIMIT) e.size = `Los detalles ocupan ${size} bytes (máximo ${INLINE_HARD_LIMIT}). Acorta la descripción.`;
       break;

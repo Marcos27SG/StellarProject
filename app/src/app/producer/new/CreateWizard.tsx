@@ -837,8 +837,8 @@ function Published({ id, onAnother }: { id: bigint; onAnother: () => void }) {
           <ShareButton
             className="justify-center"
             path={`/campaign/${id.toString()}`}
-            title="Mi preventa en Pacta"
-            text="Abrí mi preventa en Pacta: compras hoy a precio fijo y tu pago queda protegido hasta que te entrego."
+            title="Mi preventa en Ayni"
+            text="Abrí mi preventa en Ayni: compras hoy a precio fijo y tu pago queda protegido hasta que te entrego."
           />
           <Link href={`/campaign/${id.toString()}/cartel`} className="btn-ghost">
             <Printer className="size-4" aria-hidden /> Imprimir un cartel con QR para tu puesto

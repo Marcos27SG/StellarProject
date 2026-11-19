@@ -212,7 +212,7 @@ function HowItWorks() {
           <b>1. Compras hoy</b> al precio de hoy, en dólares digitales.
         </li>
         <li>
-          <b>2. Tu pago queda en custodia</b> en un contrato de Stellar: ni el productor ni Pacta pueden tocarlo.
+          <b>2. Tu pago queda en custodia</b> en un contrato de Stellar: ni el productor ni Ayni pueden tocarlo.
         </li>
         <li>
           <b>3. Recibes y confirmas.</b> Recién ahí cobra el productor. Si no cumple o no llega a la meta, se te devuelve.

@@ -1,4 +1,4 @@
-# Pacta web UI
+# Ayni web UI
 
 How the UI is put together, and how to extend it without touching the contract.
 
@@ -114,7 +114,7 @@ Each campaign carries its own `dispute_window`, fixed when it was created. `next
 
 | Component | Purpose |
 |---|---|
-| `Logo`, `PactaMark` | The Pacta mark (from the intro video) and wordmark, in token colors |
+| `Logo`, `AyniMark` | The Ayni mark (two diamonds woven like a stitch, green over amber at the top, amber over green at the bottom) and the lowercase "ayni" wordmark, in token colors. The over-under gap is a mask, so the mark works on any surface. `MARK` exports the geometry for the puntada animation. `icon.svg` repeats it with fixed colors and a dark-mode media query |
 | `Money`, `Qty` | Prices as `$us 0,60` with `≈ Bs 7,20` as a reference (decimals per category), and pluralized quantities |
 | `StatusPill`, `TierBadge`, `Streak`, `Stars`, `ProducerLine` | Status and reputation, always icon + text |
 | `CampaignCard`, `FundingBar`, `Timeline` | Campaign summary pieces. A card shows six facts; the rest is on the campaign page |
@@ -264,7 +264,7 @@ Body text never goes below 16 px. `t-detail` is for captions, card facts and the
 
 ## Wording
 
-Spanish (Bolivia), `es-BO` number and date formats: decimal comma, period for thousands. Dollars are written one way, `$us 1,00` (`formatMoney`), with bolivianos as `≈ Bs 12,00`. Prefer *vale*, *custodia*, *aval*, *verificador*, *dólares digitales* over crypto terms, and attach a `<Term>` on first use. The product is **Pacta**; its line is *No es una promesa. Es un pacto.*
+Spanish (Bolivia), `es-BO` number and date formats: decimal comma, period for thousands. Dollars are written one way, `$us 1,00` (`formatMoney`), with bolivianos as `≈ Bs 12,00`. Prefer *vale*, *custodia*, *aval*, *verificador*, *dólares digitales* over crypto terms, and attach a `<Term>` on first use. The product is **Ayni** (the Andean principle of reciprocity: *hoy por ti, mañana por mí*), written "ayni" in the wordmark and "Ayni" in text. Its line is *Lo que das, vuelve.* Internal identifiers keep the original name (the `despensa/` folder and crate, `lib/despensa.ts`, env vars, the `despensa.campaign/v1` metadata schema). Earlier names: Despensa, then Pacta.
 
 Unit names change gender between categories (*litros*, *canastas*), so never put an adjective or article that must agree with them next to a quantity. Write "entregas pendientes por 2 litros", not "2 litros entregadas".
 

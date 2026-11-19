@@ -7,7 +7,7 @@ export const GLOSSARY = {
   },
   custodia: {
     term: "Custodia",
-    definition: "Tu pago queda guardado en un contrato de Stellar, no en manos del productor ni de Pacta. Solo sale según las reglas.",
+    definition: "Tu pago queda guardado en un contrato de Stellar, no en manos del productor ni de Ayni. Solo sale según las reglas.",
   },
   aval: {
     term: "Aval",

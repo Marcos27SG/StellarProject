@@ -129,7 +129,7 @@ const ERRORS: Record<number, [string, string]> = {
   16: ["DisputeOpen", "Hay una disputa abierta."],
   17: ["NoDispute", "No hay una disputa abierta."],
   18: ["MinNotReached", "Aún no se alcanzó la meta mínima de ventas."],
-  19: ["VerifierNotAllowed", "Este verificador no está autorizado. Elige uno de la lista o pide a Pacta que lo autorice."],
+  19: ["VerifierNotAllowed", "Este verificador no está autorizado. Elige uno de la lista o pide a Ayni que lo autorice."],
   20: ["WindowOutOfRange", "El plazo de disputa debe estar entre 1 y 30 días."],
   21: ["TooLong", "El texto es demasiado largo. Acórtalo e inténtalo de nuevo."],
   22: ["NoPendingAdmin", "No hay un cambio de administrador pendiente."],

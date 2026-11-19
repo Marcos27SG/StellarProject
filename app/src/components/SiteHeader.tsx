@@ -35,7 +35,7 @@ export function SiteHeader() {
     <>
       <header className="sticky top-0 z-30 border-b border-line bg-bg print:hidden">
         <nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3" aria-label="Principal">
-          <Link href="/" aria-label="Pacta, inicio" className="rounded-md">
+          <Link href="/" aria-label="Ayni, inicio" className="rounded-md">
             <Logo />
           </Link>
           <div className="flex items-center gap-1 text-sm">

@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     const price = formatMoney(c.unit_price, decimalsFor(category));
     const description = [
       `${price} por ${category.unit.singular}, precio bloqueado.`,
-      "Tu pago queda protegido en Stellar hasta que recibes tu pedido; si no se cumple, se te devuelve.",
+      "Tu pago queda protegido en Stellar hasta que recibes tu pedido. Si no se llega al mínimo, se te devuelve el 100%.",
       meta.description,
     ]
       .filter(Boolean)
@@ -38,11 +38,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       openGraph: {
         title: c.title,
         description,
-        siteName: "Pacta",
+        siteName: "Ayni",
         type: "website",
         locale: "es_BO",
         // A route's openGraph replaces the parent's, so fall back to the site card explicitly.
-        images: [image ? { url: image } : { url: "/opengraph-image.png", width: 1200, height: 630, alt: "Pacta" }],
+        images: [image ? { url: image } : { url: "/opengraph-image.png", width: 1200, height: 630, alt: "Ayni: Lo que das, vuelve. Preventas protegidas en Stellar." }],
       },
       twitter: { card: "summary_large_image", title: c.title, description, images: [image ?? "/opengraph-image.png"] },
     };

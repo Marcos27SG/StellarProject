@@ -62,7 +62,7 @@ export function ProtectionExplainer({
       icon: Lock,
       body: (
         <>
-          <b>Nadie puede tomar el dinero fuera de estas reglas</b>, tampoco Pacta: está en <Term k="custodia">custodia</Term> en un contrato de
+          <b>Nadie puede tomar el dinero fuera de estas reglas</b>, tampoco Ayni: está en <Term k="custodia">custodia</Term> en un contrato de
           Stellar.
         </>
       ),

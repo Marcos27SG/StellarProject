@@ -56,7 +56,7 @@ export default function TransparencyPage() {
       <header className="max-w-3xl space-y-3">
         <h1 className="h-page">Transparencia</h1>
         <p className="text-ink-2">
-          Todo lo que ves aquí se lee en vivo del contrato de Pacta en Stellar. Nadie, ni nosotros, puede editar estos números: cualquiera
+          Todo lo que ves aquí se lee en vivo del contrato de Ayni en Stellar. Nadie, ni nosotros, puede editar estos números: cualquiera
           puede comprobarlos en el explorador.
         </p>
         <p className="flex flex-wrap gap-x-5 gap-y-2 text-sm">

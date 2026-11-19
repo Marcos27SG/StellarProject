@@ -87,7 +87,7 @@ export default function ProducerProfile({ address }: { address: string }) {
               <>solo puede vender con pago contra entrega hasta cumplir 3 preventas seguidas por cada incumplimiento.</>
             )}
           </p>
-          <p className="text-sm text-ink-2">Este historial está en el contrato de Stellar: nadie, ni Pacta, puede editarlo ni borrar un incumplimiento.</p>
+          <p className="text-sm text-ink-2">Este historial está en el contrato de Stellar: nadie, ni Ayni, puede editarlo ni borrar un incumplimiento.</p>
           <details className="group">
             <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm font-semibold text-brand">
               Ver todas las cifras
