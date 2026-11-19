@@ -98,7 +98,7 @@ export function VoucherQR({ c, buyer, units, category }: { c: Campaign; buyer: s
   useEffect(() => setOrigin(window.location.origin), []);
   const url = `${origin}/producer/deliver?campaign=${c.id.toString()}&buyer=${buyer}&units=${units}`;
   return (
-    <figure className="theme-light flex flex-col items-center gap-2 rounded-2xl border border-line bg-surface p-4 text-ink">
+    <figure className="theme-light flex flex-col items-center gap-2 rounded-lg border border-line bg-surface p-4 text-ink">
       {origin ? (
         <QRCodeSVG value={url} size={200} level="M" marginSize={2} title={`Código de tu ${copy(category, "voucherNoun")}`} />
       ) : (

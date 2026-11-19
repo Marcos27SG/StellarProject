@@ -125,8 +125,8 @@ export default function MyVouchersPage() {
       {loading && !list.error && !holdings.error && (
         <div className="space-y-3">
           <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-24 w-full rounded-2xl" />
-          <Skeleton className="h-24 w-full rounded-2xl" />
+          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-24 w-full rounded-lg" />
         </div>
       )}
 

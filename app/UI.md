@@ -151,72 +151,116 @@ Each campaign carries its own `dispute_window`, fixed when it was created. `next
 
 Tokens live in `src/app/globals.css`, with a dark-mode set. Components use the token names only (`bg-surface`, `text-ink-2`, `text-warning`, `bg-danger-soft`…), never raw palette classes or hex values. `.theme-light` forces the light set on a subtree (the printed poster, the voucher QR).
 
-**Base hue: green, 152°** (`#1E6B47`, the logo). Green reads as money, growth and "safe to go"; kept deep and slightly desaturated, it reads as stable rather than playful, which is what a product holding other people's money should feel like. It also ties to the producers: milk, eggs, vegetables.
+The palette comes from the Ayni design system ("Tejido", `docs/design/01-color.html`). The boards use slightly different names; the app keeps its own: `border` → `line-strong`, `brand-strong` → `brand-hover`, `brand-tint` → `brand-soft`, `on-brand` → `brand-ink`, `*-tint` → `*-soft`, `error` → `danger`.
 
-**Accent: amber, 40°** (from the video's coins and stars, and the aguayo textile). It is the warm, local counterweight to the green. Used only for small highlights (rating stars, streak flame, the "something to do" dot); never for body text.
+**Base hue: green, 152°** (`#1E6B47`, the logo's left diamond). Green reads as money, growth and "safe to go"; kept deep and slightly desaturated, it reads as stable rather than playful, which is what a product holding other people's money should feel like. It also ties to the producers: milk, eggs, vegetables.
 
-**Neutrals: warm paper.** The neutral scale is tinted toward the amber (hue ≈ 40°, low chroma), so pages feel like paper and market stalls, not a bank terminal.
+**Accent: amber** (`#A87406`, the logo's right diamond, from coins and the aguayo). The warm, local counterweight to the green, and the second half of the reciprocity mark.
+
+**Neutrals: warm paper, green ink.** The page is paper (`#F7F4EE`); text and dark mode lean slightly green (`#1C2420`, `#121714`) so ink and brand belong together.
+
+### Usage rules (board 01)
+
+- **Color never goes alone.** Every status has an icon and a word: Completado, Pendiente, Falló.
+- **Amber is scarce.** Only stars, streak, tiers and the "por hacer" dot. Never a button, never small text on an amber fill. Text in the accent tone uses `accent-ink`, which passes 4.5:1.
+- **The green tint means "tu dinero está aquí".** `brand-soft` is reserved for showing where money waits (the voucher's money box, the confirm sheet) and for selected options. It is not a decorative tile color.
+- **Warning ≠ accent.** Warning is orange-brown (`#9A4D00`), accent is amber, so "pendiente" never looks like "tienes algo que hacer".
+- **Dark is not pure black.** A very dark green background, no neon; elevation lightens the surface instead of casting a shadow.
 
 **Semantic colors** each come with an icon and a word, so color is never the only signal:
 
-| Role | Light | Dark | Icon | Use |
-|---|---|---|---|---|
-| Success | `#1E6B47` on `#E4F0E9` | `#5CC490` on `#1B3226` | check | Money released, delivery confirmed, goal met |
-| Warning | `#8A5300` on `#FBEFD9` | `#E8AD52` on `#3A2B14` | triangle | Deadlines, "no se puede deshacer", things waiting on you |
-| Error | `#B4352A` on `#FBE8E5` | `#F08072` on `#3E1D19` | alert / x | Failed transactions, defaults, invalid input |
-| Info | `#24609E` on `#E2ECF8` | `#74ABE9` on `#172A40` | info / clock | Pending money, "en entrega", neutral notices |
+| Role | Light | Dark | Use |
+|---|---|---|---|
+| Success | `#2F7A3A` on `#E4F1E2` | `#7BD08A` on `#1B3321` | Completado, minimum reached, protected |
+| Warning | `#9A4D00` on `#FBEBD8` | `#F0A050` on `#3A2716` | Pendiente, Sin confirmar, disputes, no signal, "no se puede deshacer" |
+| Danger | `#B42318` on `#FBE5E1` | `#FF8A7A` on `#3D1D1A` | Falló, destructive actions, invalid input |
+| Info | `#24609E` on `#E2ECF7` | `#7FB2EA` on `#1A2A3D` | En curso, refunds, tips |
 
-Info blue is the one hue outside the brand pair: a cool, calm color for "in progress" that can't be mistaken for success (green) or a problem (amber, red).
+Info blue is the one hue outside the brand pair: a cool, calm color for "in progress" that can't be mistaken for success (green) or a problem (orange, red). The focus ring uses the same blue.
 
 ### Palette
 
 | Token | Light | Dark | Rule |
 |---|---|---|---|
-| `bg` | `#F7F4EE` | `#14120F` | Page |
-| `surface` | `#FFFFFF` | `#1C1A16` | Cards, inputs, dialogs |
-| `surface-2` | `#F1ECE3` | `#26231E` | Subtle fills: chips, tiles, progress track, disabled buttons |
-| `line` | `#E6DFD3` | `#34302A` | Decorative dividers only |
-| `line-strong` | `#8E8679` | `#7A7367` | Borders that identify a control (inputs, secondary buttons): 3:1 |
-| `ink` | `#1D1913` | `#F2EDE4` | Text, headings |
-| `ink-2` | `#5B544B` | `#BDB5A8` | Secondary text |
-| `ink-3` | `#6B6459` | `#A69E92` | Placeholders, icons in inputs |
-| `brand` | `#1E6B47` | `#4FB985` | Primary buttons, links, focus ring, progress |
-| `brand-hover` | `#175638` | `#67C899` | Primary button hover |
-| `brand-soft` | `#E4F0E9` | `#1B3226` | Selected options |
-| `brand-ink` | `#FFFFFF` | `#0B1A12` | Text on `brand` |
-| `accent` | `#A87406` | `#E8B44E` | Stars, streak, attention dot. Not text |
-| `accent-soft` | `#FAF0D9` | `#3A2E14` | Reserved for accent fills |
-| `success` / `-soft` | `#1E6B47` / `#E4F0E9` | `#5CC490` / `#1B3226` | See semantic table |
-| `warning` / `-soft` | `#8A5300` / `#FBEFD9` | `#E8AD52` / `#3A2B14` | |
-| `danger` / `-soft` | `#B4352A` / `#FBE8E5` | `#F08072` / `#3E1D19` | |
-| `info` / `-soft` | `#24609E` / `#E2ECF8` | `#74ABE9` / `#172A40` | |
-| `seg-*` | green ramp + neutral | green ramp + neutral | Transparency chart only |
+| `bg` | `#F7F4EE` | `#121714` | Page |
+| `surface` | `#FFFFFF` | `#1A211D` | Cards, fields (elevation 0 and 1) |
+| `surface-fixed` | `#FFFFFF` | `#232B26` | Fixed bars: "Reservar", tab bar (elevation 2) |
+| `surface-over` | `#FFFFFF` | `#2C352F` | Sheets, dialogs (elevation 3) |
+| `surface-2` | `#EFEADF` | `#232B26` | Sunken: chips, tracks, skeletons, disabled buttons |
+| `line` | `#E2DCD0` | `#2C352F` | Decorative dividers only |
+| `line-strong` | `#857F73` | `#7C867F` | Borders that identify a control (inputs, secondary buttons): 3:1 |
+| `ink` | `#1C2420` | `#ECE8E0` | Text, headings |
+| `ink-2` | `#4F5A53` | `#A9B1AB` | Secondary text |
+| `ink-3` | `#5E6761` | `#959E98` | Placeholders, disabled labels |
+| `brand` | `#1E6B47` | `#5FBF8A` | Main action, links, selection, progress |
+| `brand-hover` | `#155236` | `#86D3A7` | Primary button hover and pressed |
+| `brand-soft` | `#E4EFE7` | `#1C3428` | "Your money is here", selected options; the link color on toasts and tooltips |
+| `brand-ink` | `#FFFFFF` | `#0E1A13` | Text on `brand` |
+| `accent` | `#A87406` | `#E0A93B` | Stars, streak, tier diamonds, "to do" dot. Graphic only |
+| `accent-ink` | `#8A5F00` | `#E6B24A` | Text in the accent tone: tier and streak labels, "Por confirmar" |
+| `accent-soft` | `#F6EBD3` | `#3A2E15` | Tier and streak tiles, accent pills |
+| `success` / `-soft` | `#2F7A3A` / `#E4F1E2` | `#7BD08A` / `#1B3321` | See semantic table |
+| `warning` / `-soft` | `#9A4D00` / `#FBEBD8` | `#F0A050` / `#3A2716` | |
+| `danger` / `-soft` | `#B42318` / `#FBE5E1` | `#FF8A7A` / `#3D1D1A` | |
+| `info` / `-soft` | `#24609E` / `#E2ECF7` | `#7FB2EA` / `#1A2A3D` | |
+| `focus` | `#24609E` | `#7FB2EA` | Focus ring: 3 px, with a 2 px gap |
+| `scrim` | `rgb(18 23 20 / .52)` | same | Behind sheets and dialogs |
+| `seg-*` | green ramp + neutral | green ramp + neutral | Transparency chart only (not on the boards; unchanged, still passes) |
+
+Toasts and tooltips use the inverse pair: `bg-ink` with `text-bg`, and `text-brand-soft` for their link. The dark board draws that link in `#5FBF8A`, which is 1.85:1 on the light toast; `brand-soft` is 10.9:1.
 
 ### Contrast (WCAG 2.1 AA)
 
+`npm run contrast` (scripts/check-contrast.mjs) reads globals.css and fails below AA. Selected pairs:
+
 | Pair | Light | Dark | Needs |
 |---|---|---|---|
-| `ink` on `bg` | 15.93 | 16.03 | 4.5 |
-| `ink-2` on `surface-2` | 6.34 | 7.71 | 4.5 |
-| `ink-3` on `surface-2` (worst case) | 4.97 | 5.91 | 4.5 |
-| `brand-ink` on `brand` (button) | 6.46 | 7.36 | 4.5 |
-| `brand` on `bg` (links) | 5.89 | 7.67 | 4.5 |
-| `brand` on `brand-soft` | 5.52 | 5.62 | 4.5 |
-| `line-strong` on `surface` (control border) | 3.60 | 3.70 | 3 |
-| `line-strong` on `bg` | 3.28 | 3.98 | 3 |
-| `accent` on `surface` (stars) | 4.07 | 9.16 | 3 |
-| `success` on `success-soft` | 5.52 | 6.37 | 4.5 |
-| `warning` on `warning-soft` | 5.56 | 6.86 | 4.5 |
-| `danger` on `danger-soft` | 5.10 | 5.76 | 4.5 |
-| `info` on `info-soft` | 5.43 | 6.07 | 4.5 |
-| `brand` progress on `surface-2` track | 5.49 | 6.42 | 3 |
-| Chart labels on each segment (lowest) | 6.46 | 5.01 | 4.5 |
+| `ink` on `bg` | 14.46 | 14.84 | 4.5 |
+| `ink-2` on `bg` | 6.55 | 8.26 | 4.5 |
+| `ink-3` on `surface-2` (disabled button) | 4.88 | 5.27 | 4.5 |
+| `ink-3` on `surface-over` (placeholder in a sheet) | 5.85 | 4.60 | 4.5 |
+| `brand-ink` on `brand` (button) | 6.46 | 7.91 | 4.5 |
+| `brand` on `bg` (links) | 5.89 | 8.03 | 4.5 |
+| `brand` on `brand-soft` | 5.48 | 5.92 | 4.5 |
+| `accent-ink` on `bg` | 5.15 | 9.35 | 4.5 |
+| `accent-ink` on `accent-soft` | 4.77 | 6.85 | 4.5 |
+| `accent` on `surface` (stars, diamonds) | 4.07 | 7.75 | 3 |
+| `focus` on `bg` / `surface` | 5.90 / 6.48 | 8.17 / 7.39 | 3 |
+| `line-strong` on `surface` (control border) | 3.98 | 4.36 | 3 |
+| `line-strong` on `surface-over` | 3.98 | 3.36 | 3 |
+| `success` on `success-soft` | 4.53 | 7.28 | 4.5 |
+| `warning` on `warning-soft` | 5.23 | 6.65 | 4.5 |
+| `danger` on `danger-soft` | 5.45 | 6.60 | 4.5 |
+| `info` on `info-soft` | 5.42 | 6.56 | 4.5 |
+| `brand` progress on `surface-2` track | 5.39 | 6.44 | 3 |
+| `brand-soft` on `ink` (toast link) | 13.46 | 10.94 | 4.5 |
 
-Disabled buttons use `ink-3` on `surface-2` (4.97 / 5.91), not a faded brand, so their label stays readable. Re-check after any token change with `npm run contrast` (scripts/check-contrast.mjs reads globals.css and fails below AA).
+The focus ring can't sit on the brand fill (`focus` on `brand` is 1:1), so it always has a 2 px gap (`outline-offset`). Disabled buttons use `ink-3` on `surface-2`, not a faded brand, so their label stays readable.
 
-### Type and space
+### Type
 
-Fraunces for headings (`h-page`, `h-section`), Geist for everything else; `h-sub` is a semibold body-size heading. Body text is `text-base`, secondary text `text-sm`; `text-xs` is only for pills and chart labels. Radii: `rounded-full` (pills, chips, icon buttons), `rounded-xl` (controls, notices, inner boxes), `rounded-2xl` (cards, dialogs, media). Pages separate sections with `space-y-10`.
+Archivo (variable, `wdth` axis) for display, titles and amounts; Atkinson Hyperlegible (400, 700) for everything else. Both load with `next/font/google` in `layout.tsx`. Atkinson tells 1/l/I and 0/O apart, which matters in prices and codes; wide Archivo gives amounts and titles weight.
+
+| Class | Font | Mobile | Desktop (≥ 1024 px) |
+|---|---|---|---|
+| `t-display` | Archivo width 115, 800, -0.01em | 32/38 | 48/56 |
+| `t-title-1` (= `h-page`) | Archivo width 115, 800, -0.01em | 24/30 | 32/40 |
+| `t-title-2` (= `h-section`) | Archivo width 110, 700 | 20/26 | 24/30 |
+| `t-subtitle` | Atkinson 700 | 18/24 | 18/26 |
+| `t-body` (and `body`) | Atkinson 400 | 16/24 | 17/26 |
+| `t-detail` | Atkinson 400 | 14/20 | 15/22 |
+| `t-label` | Atkinson 700, uppercase, 0.06em | 12/16 | 12/16 |
+| `t-amount` | Archivo width 110, 800, tabular | 24/28 | 32/36 |
+
+Body text never goes below 16 px. `t-detail` is for captions, card facts and the line under a bar, never for paragraphs. `h-sub` is a bold body-size heading.
+
+### Space, shape, elevation, motion
+
+- **Spacing**, base 4: `--space-0` … `--space-9` = 2, 4, 8, 12, 16, 20, 24, 32, 40, 56 px, the same grid as Tailwind's numeric scale (0.5, 1, 2, 3, 4, 5, 6, 8, 10, 14). Screen margin 16, between cards 12, inside a card 14–16. Tap targets 48 px for main actions, never under 44.
+- **Radii** (Tailwind's scale is replaced by the board's): `rounded-xs` 6 tags · `rounded-sm` 8 thumbnails · `rounded-md` 12 buttons, fields, notices · `rounded-lg` 16 cards, vouchers · `rounded-xl` 24 bottom sheets · `rounded-full` chips, pills, avatars.
+- **Elevation**: 0 flat (lists, rows) · 1 `shadow-card` (campaign cards, vouchers) · 2 `shadow-fixed` + `bg-surface-fixed` (the "Reservar" bar, tab bar) · 3 `shadow-lift` + `bg-surface-over` (sheets, dialogs, toasts). Shadows are very soft: at the market the border and the paper give the contrast. Dark mode has no shadows; each level lightens the surface.
+- **Motion**: `--motion-fast` 120 ms (press, chips) · `--motion-base` 200 ms (state changes) · `--motion-slow` 320 ms (sheets, screens; enter curve) · `--motion-exit` 160 ms (closing is faster; exit curve) · `--motion-puntada` 480 ms. Curves: `ease-standard` (.2,0,0,1), `ease-enter` (0,0,0,1), `ease-exit` (.3,0,1,1). Motion explains where something comes from and goes; nothing moves while money is moving except the status indicator. **La puntada** (the two diamonds coming in from the sides and interlocking) is the only brand animation and plays only on "Completado" and "Cobraste".
+- **Reduced motion**: every transition becomes an instant change; elements marked `.motion-fade` keep a 120 ms opacity fade. La puntada appears already interlocked, bars jump to their value, skeletons don't shimmer.
 
 ## Wording
 

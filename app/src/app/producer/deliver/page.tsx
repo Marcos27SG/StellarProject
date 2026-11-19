@@ -51,7 +51,7 @@ function Deliver() {
     return (
       <div className="mx-auto max-w-md space-y-3">
         <Skeleton className="h-8 w-2/3" />
-        <Skeleton className="h-48 w-full rounded-2xl" />
+        <Skeleton className="h-48 w-full rounded-lg" />
       </div>
     );
   }
@@ -188,7 +188,7 @@ function HandoffStatus({
     const gross = (BigInt(confirmed) * unitPrice * BigInt(10_000 - releasedBps)) / BigInt(10_000);
     const net = gross - (gross * BigInt(feeBps)) / BigInt(10_000);
     return (
-      <div className="space-y-2 rounded-2xl bg-success-soft p-4" role="status" aria-live="polite">
+      <div className="space-y-2 rounded-lg bg-success-soft p-4" role="status" aria-live="polite">
         <MoneyStatus state="completed" label="Cobrado" />
         <p className="text-lg font-semibold">El comprador confirmó</p>
         <p className="text-sm text-ink-2">
@@ -199,7 +199,7 @@ function HandoffStatus({
   }
   if (h.disputed) {
     return (
-      <div className="space-y-2 rounded-2xl bg-danger-soft p-4" role="status" aria-live="polite">
+      <div className="space-y-2 rounded-lg bg-danger-soft p-4" role="status" aria-live="polite">
         <p className="flex items-center gap-2 font-semibold text-danger">
           <Gavel className="size-5" aria-hidden /> El comprador abrió una disputa
         </p>
@@ -208,7 +208,7 @@ function HandoffStatus({
     );
   }
   return (
-    <div className="space-y-2 rounded-2xl bg-info-soft p-4" role="status" aria-live="polite">
+    <div className="space-y-2 rounded-lg bg-info-soft p-4" role="status" aria-live="polite">
       <MoneyStatus state="pending" label="Pago pendiente" />
       <p className="flex items-center gap-2 font-semibold">
         <LoaderCircle className="size-5 animate-spin text-brand" aria-hidden /> Esperando que el comprador confirme…
@@ -227,7 +227,7 @@ function capitalize(s: string) {
 
 export default function DeliverPage() {
   return (
-    <Suspense fallback={<Skeleton className="mx-auto h-64 max-w-md rounded-2xl" />}>
+    <Suspense fallback={<Skeleton className="mx-auto h-64 max-w-md rounded-lg" />}>
       <Deliver />
     </Suspense>
   );

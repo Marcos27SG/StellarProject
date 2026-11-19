@@ -302,7 +302,7 @@ function AccountDialog({ open, onClose }: { open: boolean; onClose: () => void }
         </div>
         <div>
           <p className="text-sm text-ink-2">Dirección en Stellar (testnet)</p>
-          <button type="button" onClick={copy} className="mt-1 inline-flex max-w-full items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-left font-mono text-xs break-all">
+          <button type="button" onClick={copy} className="mt-1 inline-flex max-w-full items-center gap-2 rounded-sm bg-surface-2 px-3 py-2 text-left font-mono text-xs break-all">
             {address}
             <Copy className="size-4 shrink-0" aria-hidden />
           </button>

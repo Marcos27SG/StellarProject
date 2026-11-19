@@ -219,7 +219,7 @@ function SplitBar({ value, total }: { value: Record<SegmentKey, bigint>; total: 
       <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-ink-2" aria-label="Leyenda">
         {parts.map((p) => (
           <li key={p.key} className="inline-flex items-center gap-1.5">
-            <span className="size-3 rounded-sm" style={{ background: `var(--seg-${p.key})` }} aria-hidden />
+            <span className="size-3 rounded-xs" style={{ background: `var(--seg-${p.key})` }} aria-hidden />
             {p.label} · {pct(p.pct)}
           </li>
         ))}

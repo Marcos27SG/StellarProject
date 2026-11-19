@@ -145,7 +145,7 @@ export default function CatalogPreview() {
                       <h3 className="mb-2 font-semibold">Atributos</h3>
                       <ul className="flex flex-wrap gap-2">
                         {cat.attributes.map((f) => (
-                          <li key={f.key} className="rounded-lg border border-line px-2 py-1 text-xs">
+                          <li key={f.key} className="rounded-sm border border-line px-2 py-1 text-xs">
                             <span className="text-ink-3">{f.label}:</span> {formatAttribute(f, meta.attributes[f.key])}
                             {f.required && <span className="text-danger"> *</span>}
                             {f.showOnCard && <span className="text-ink-3"> · en tarjeta</span>}
@@ -197,7 +197,7 @@ export default function CatalogPreview() {
                 </div>
               </div>
 
-              <details className="rounded-2xl">
+              <details className="rounded-lg">
                 <summary className="cursor-pointer text-sm text-ink-2">Ver explicación de protecciones</summary>
                 <div className="mt-3">
                   <ProtectionExplainer c={c} category={cat} pool={toAmount("125")} disputeWindow={3n * DAY} />

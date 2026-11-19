@@ -181,12 +181,12 @@ function Gallery({ meta }: { meta: CampaignMetadata }) {
   return (
     <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={images[0]} alt={meta.description.slice(0, 80) || "Foto del producto"} className="h-56 w-full rounded-2xl object-cover sm:h-72" />
+      <img src={images[0]} alt={meta.description.slice(0, 80) || "Foto del producto"} className="h-56 w-full rounded-lg object-cover sm:h-72" />
       {images.length > 1 && (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-1 sm:grid-rows-2">
           {images.slice(1, 3).map((src) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={src} src={src} alt="" className="h-24 w-full rounded-2xl object-cover sm:h-full" loading="lazy" />
+            <img key={src} src={src} alt="" className="h-24 w-full rounded-lg object-cover sm:h-full" loading="lazy" />
           ))}
         </div>
       )}
@@ -402,9 +402,9 @@ function CampaignSkeleton() {
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-10 w-3/4" />
         <Skeleton className="h-5 w-1/2" />
-        <Skeleton className="h-40 w-full rounded-2xl" />
+        <Skeleton className="h-40 w-full rounded-lg" />
       </div>
-      <Skeleton className="hidden h-80 w-full rounded-2xl lg:block" />
+      <Skeleton className="hidden h-80 w-full rounded-lg lg:block" />
     </div>
   );
 }

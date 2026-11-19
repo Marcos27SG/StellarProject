@@ -56,6 +56,30 @@ const PAIRS = [
   ["ink-2", "info-soft", TEXT, "Secondary text in a notice"],
   ["ink-2", "warning-soft", TEXT, "Secondary text in a notice"],
   ["ink-2", "danger-soft", TEXT, "Secondary text in a notice"],
+  ["ink-2", "brand-soft", TEXT, "Secondary text in the money box"],
+  ["ink-2", "success-soft", TEXT, "Secondary text in a notice"],
+  ["line-strong", "surface-2", UI, "Control borders on fills"],
+  // Accent text (tier and streak labels, "Por confirmar" pill).
+  ["accent-ink", "bg", TEXT, "Accent text on page"],
+  ["accent-ink", "surface", TEXT, "Accent text on cards"],
+  ["accent-ink", "accent-soft", TEXT, "Accent pill"],
+  ["accent", "accent-soft", UI, "Diamonds on a tier tile"],
+  // Focus ring (drawn with a 2 px gap, so it sits on the page, a card or a fill, never on the brand).
+  ["focus", "bg", UI, "Focus ring on page"],
+  ["focus", "surface", UI, "Focus ring on cards"],
+  ["focus", "surface-2", UI, "Focus ring on fills"],
+  // Raised surfaces (in dark mode, elevation lightens the surface instead of casting a shadow).
+  ["ink", "surface-over", TEXT, "Text in sheets and dialogs"],
+  ["ink-2", "surface-over", TEXT, "Secondary text in sheets"],
+  ["ink-3", "surface-over", TEXT, "Placeholders in sheets"],
+  ["brand", "surface-over", TEXT, "Links in sheets"],
+  ["line-strong", "surface-over", UI, "Control borders in sheets"],
+  ["ink-2", "surface-fixed", TEXT, "Secondary text on the fixed bar"],
+  // Toasts and tooltips use the inverse pair (bg-ink, text-bg) with brand-soft for their link.
+  ["bg", "ink", TEXT, "Toast and tooltip text"],
+  ["brand-soft", "ink", TEXT, "Toast and tooltip link"],
+  // Destructive button: white on danger in light, page color on danger in dark.
+  ["surface", "danger", TEXT, "Destructive button"],
   ["seg-delivered-ink", "seg-delivered", TEXT, "Chart label: delivered"],
   ["seg-pending-ink", "seg-pending", TEXT, "Chart label: pending"],
   ["seg-todo-ink", "seg-todo", TEXT, "Chart label: to deliver"],

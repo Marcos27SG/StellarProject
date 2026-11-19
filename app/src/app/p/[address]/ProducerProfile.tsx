@@ -130,7 +130,7 @@ function CampaignGroup({
     <section className="space-y-3">
       <h2 className="h-section">{title}</h2>
       {loading ? (
-        <Skeleton className="h-48 w-full rounded-2xl" />
+        <Skeleton className="h-48 w-full rounded-lg" />
       ) : items.length === 0 ? (
         <p className="text-sm text-ink-2">{empty}</p>
       ) : (

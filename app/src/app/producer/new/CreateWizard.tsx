@@ -299,7 +299,7 @@ function StepCategory({ selected, onPick }: { selected?: string; onPick: (c: Cat
               disabled={c.comingSoon}
               onClick={() => onPick(c)}
               aria-pressed={selected === c.id}
-              className={`flex h-full w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors ${
+              className={`flex h-full w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
                 selected === c.id ? "border-brand bg-brand-soft ring-2 ring-brand" : "border-line-strong bg-surface hover:bg-surface-2"
               } disabled:cursor-not-allowed disabled:border-line disabled:bg-transparent`}
             >
@@ -499,7 +499,7 @@ function StepPrice({ d, category, update, errors }: StepProps) {
         </Field>
       </div>
       {price !== null && price > BigInt(0) && max > 0 && (
-        <dl className="grid gap-3 rounded-xl bg-surface-2 p-4 text-sm sm:grid-cols-2">
+        <dl className="grid gap-3 rounded-md bg-surface-2 p-4 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-ink-2">Si vendes todo ({formatQty(max, category)})</dt>
             <dd>
@@ -541,7 +541,7 @@ function StepMilestones({ d, category, tier, feeBps, update, errors }: StepProps
         </>
       }
     >
-      <div className="rounded-xl bg-surface-2 p-4 text-sm text-ink-2 [&_b]:text-ink">
+      <div className="rounded-md bg-surface-2 p-4 text-sm text-ink-2 [&_b]:text-ink">
         Tu nivel <b>{TIER_NAMES[tier.tier]}</b>{" "}
         {tier.max_advance_bps > 0 ? (
           <>
@@ -570,7 +570,7 @@ function StepMilestones({ d, category, tier, feeBps, update, errors }: StepProps
 
           <ul className="space-y-3">
             {d.milestones.map((m, i) => (
-              <li key={i} className={`rounded-xl p-3 ${m.enabled ? "bg-surface-2" : ""}`}>
+              <li key={i} className={`rounded-md p-3 ${m.enabled ? "bg-surface-2" : ""}`}>
                 <div className="grid items-start gap-3 sm:grid-cols-[auto_1fr_7rem_auto]">
                   <input
                     type="checkbox"
@@ -660,7 +660,7 @@ function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps
             {known.map((v) => (
               <label
                 key={v.address}
-                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm ${
+                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm ${
                   !other && d.verifier === v.address ? "border-brand bg-brand-soft" : "border-line-strong hover:bg-surface-2"
                 }`}
               >
@@ -681,7 +681,7 @@ function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps
                 </span>
               </label>
             ))}
-            <label className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm ${other ? "border-brand bg-brand-soft" : "border-line-strong hover:bg-surface-2"}`}>
+            <label className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 text-sm ${other ? "border-brand bg-brand-soft" : "border-line-strong hover:bg-surface-2"}`}>
               <input
                 type="radio"
                 name="verifier"

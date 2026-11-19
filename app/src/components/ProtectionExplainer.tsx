@@ -82,7 +82,7 @@ export function ProtectionExplainer({
           </li>
         ))}
       </ul>
-      <details className="group rounded-xl bg-surface-2 px-4 py-3">
+      <details className="group rounded-md bg-surface-2 px-4 py-3">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold">
           ¿Qué pasa si el productor no cumple?
           <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden />

@@ -32,7 +32,7 @@ export function CategoryIcon({
 export function CategoryTile({ category, size = "md" }: { category: CategoryDef; size?: "md" | "lg" }) {
   const s = size === "lg" ? "size-14 [&>*]:size-7" : "size-11 [&>*]:size-6";
   return (
-    <span className={`flex shrink-0 items-center justify-center rounded-xl bg-surface-2 text-ink-2 ${s}`}>
+    <span className={`flex shrink-0 items-center justify-center rounded-md bg-surface-2 text-ink-2 ${s}`}>
       <CategoryIcon category={category} />
     </span>
   );

@@ -22,7 +22,7 @@ import { config } from "@/lib/config";
 import { GLOSSARY, type GlossaryKey } from "@/lib/glossary";
 
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-xl bg-surface-2 ${className}`} aria-hidden />;
+  return <div className={`animate-pulse rounded-md bg-surface-2 ${className}`} aria-hidden />;
 }
 
 export function EmptyState({
@@ -37,7 +37,7 @@ export function EmptyState({
   action?: { href: string; label: string };
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl bg-surface-2 px-6 py-12 text-center">
+    <div className="flex flex-col items-center gap-3 rounded-lg bg-surface-2 px-6 py-12 text-center">
       {icon && <div className="text-ink-3">{icon}</div>}
       <h2 className="h-section">{title}</h2>
       {children && <div className="max-w-md text-sm text-ink-2">{children}</div>}
@@ -81,7 +81,7 @@ export function Notice({
   const t = TONES[tone];
   const Icon = icon ?? t.icon;
   return (
-    <div id={id} className={`flex flex-wrap items-start gap-x-3 gap-y-2 rounded-xl px-4 py-3 text-sm ${t.cls}`} role={tone === "danger" ? "alert" : "status"}>
+    <div id={id} className={`flex flex-wrap items-start gap-x-3 gap-y-2 rounded-md px-4 py-3 text-sm ${t.cls}`} role={tone === "danger" ? "alert" : "status"}>
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       <div className="min-w-0 flex-1 space-y-0.5">
         {title && <p className="font-semibold">{title}</p>}
@@ -184,7 +184,7 @@ export function Hint({ label, children }: { label: string; children: ReactNode }
         style={{ position: "fixed", ...pos }}
         onPointerEnter={enter}
         onPointerLeave={leave}
-        className="z-50 rounded-xl bg-ink px-3 py-2 text-left text-sm leading-relaxed font-normal text-bg shadow-lift"
+        className="z-50 rounded-md bg-ink px-3 py-2 text-left text-sm leading-relaxed font-normal text-bg shadow-lift"
       >
         {children}
       </span>
@@ -367,7 +367,7 @@ export function TxSteps({
   const link = hash ? <ExplorerLink path={`tx/${hash}`}>Ver en Stellar</ExplorerLink> : null;
   if (phase === "done") {
     return (
-      <div className="space-y-2 rounded-xl bg-success-soft px-4 py-3 text-sm" role="status" aria-live="polite">
+      <div className="space-y-2 rounded-md bg-success-soft px-4 py-3 text-sm" role="status" aria-live="polite">
         <MoneyStatus state="completed" />
         {success && <p className="font-medium text-ink">{success}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -379,7 +379,7 @@ export function TxSteps({
   }
   if (phase === "pending") {
     return (
-      <div className="space-y-2 rounded-xl bg-info-soft px-4 py-3 text-sm" role="status" aria-live="polite">
+      <div className="space-y-2 rounded-md bg-info-soft px-4 py-3 text-sm" role="status" aria-live="polite">
         <MoneyStatus state="pending" />
         <p className="text-ink">La red recibió la operación y todavía no la confirma. No la repitas: puede tardar unos minutos.</p>
         {link}
@@ -388,7 +388,7 @@ export function TxSteps({
   }
   if (phase === "unconfirmed") {
     return (
-      <div className="space-y-2 rounded-xl bg-warning-soft px-4 py-3 text-sm" role="status" aria-live="polite">
+      <div className="space-y-2 rounded-md bg-warning-soft px-4 py-3 text-sm" role="status" aria-live="polite">
         <MoneyStatus state="pending" label="Sin confirmar" />
         <p className="text-ink">
           La red tardó en responder y no sabemos todavía si la operación pasó. Revisa esta página en un minuto antes de
@@ -400,7 +400,7 @@ export function TxSteps({
   }
   if (phase === "error") {
     return (
-      <div className="space-y-2 rounded-xl bg-danger-soft px-4 py-3 text-sm" role="alert">
+      <div className="space-y-2 rounded-md bg-danger-soft px-4 py-3 text-sm" role="alert">
         <MoneyStatus state="failed" />
         <p className="text-ink">
           {error} <span className="text-ink-2">No se movió tu dinero.</span>
@@ -476,7 +476,7 @@ export function Dialog({
       }}
       onClick={(e) => e.target === ref.current && onClose()}
       aria-label={title}
-      className="m-0 mt-auto w-full max-w-none rounded-t-2xl bg-surface p-0 text-ink shadow-lift backdrop:bg-scrim sm:m-auto sm:max-w-md sm:rounded-2xl"
+      className="m-0 mt-auto w-full max-w-none rounded-t-lg bg-surface p-0 text-ink shadow-lift backdrop:bg-scrim sm:m-auto sm:max-w-md sm:rounded-lg"
     >
       <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-2">
         <h2 className="h-section">{title}</h2>

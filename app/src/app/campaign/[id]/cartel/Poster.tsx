@@ -21,7 +21,7 @@ export default function Poster({ id }: { id: string }) {
   useEffect(() => setOrigin(window.location.origin), []);
 
   if (!valid || item.error) return <EmptyState title="No encontramos esta preventa" action={{ href: "/", label: "Volver al mercado" }} />;
-  if (!item.data) return <Skeleton className="mx-auto h-[640px] max-w-3xl rounded-2xl" />;
+  if (!item.data) return <Skeleton className="mx-auto h-[640px] max-w-3xl rounded-lg" />;
 
   const { c, meta, category } = item.data;
   const d = decimalsFor(category);
@@ -41,7 +41,7 @@ export default function Poster({ id }: { id: string }) {
       </div>
 
       {/* Always light (.theme-light): it is printed on paper and read in sunlight. */}
-      <article className="theme-light mx-auto max-w-3xl space-y-6 rounded-2xl border-2 border-brand bg-surface p-8 text-ink sm:p-12 print:max-w-none print:rounded-none print:border-0 print:p-0">
+      <article className="theme-light mx-auto max-w-3xl space-y-6 rounded-lg border-2 border-brand bg-surface p-8 text-ink sm:p-12 print:max-w-none print:rounded-none print:border-0 print:p-0">
         <header className="flex items-center justify-between gap-4">
           <Logo size="lg" />
           <p className="rounded-full bg-brand-soft px-3 py-1 text-sm font-semibold text-brand">Preventa protegida</p>

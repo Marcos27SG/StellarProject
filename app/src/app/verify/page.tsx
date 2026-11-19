@@ -71,7 +71,7 @@ export default function VerifyPage() {
           {list.error}
         </Notice>
       )}
-      {!list.data && !list.error && <Skeleton className="h-48 w-full rounded-2xl" />}
+      {!list.data && !list.error && <Skeleton className="h-48 w-full rounded-lg" />}
 
       {list.data && mine.length === 0 && (
         <EmptyState icon={<Scale className="size-10" />} title="No verificas ninguna campaña">
@@ -148,7 +148,7 @@ function InboxCard({ item: { c, meta, category } }: { item: CampaignItem }) {
               const href = safeHref(m.evidence);
               const hint = category.milestoneTemplates.find((t) => t.title === m.title)?.evidenceHint;
               return (
-                <li key={a.milestoneIndex} className="space-y-3 rounded-xl bg-surface-2 p-4">
+                <li key={a.milestoneIndex} className="space-y-3 rounded-md bg-surface-2 p-4">
                   <div className="space-y-1 text-sm">
                     <p className="font-medium">
                       {m.title} <span className="font-normal text-ink-3">· adelanto del {formatPct(m.bps)}</span>
@@ -184,7 +184,7 @@ function InboxCard({ item: { c, meta, category } }: { item: CampaignItem }) {
             {disputes.map((a, i) => {
               const d = pending.data?.find((x) => x.buyer === a.buyer);
               return (
-                <li key={a.buyer ?? `manual-${i}`} className="space-y-3 rounded-xl bg-danger-soft p-4 text-sm">
+                <li key={a.buyer ?? `manual-${i}`} className="space-y-3 rounded-md bg-danger-soft p-4 text-sm">
                   {d ? (
                     <p>
                       El comprador <span className="font-mono">{shortAddress(d.buyer)}</span> dice que no recibió{" "}

@@ -131,14 +131,14 @@ function Dashboard({ address }: { address: string }) {
 
 function ReputationCard({ address }: { address: string }) {
   const q = useProducer(address);
-  if (!q.data) return <Skeleton className="h-32 w-full rounded-2xl" />;
+  if (!q.data) return <Skeleton className="h-32 w-full rounded-lg" />;
   const { rep, tier } = q.data;
   const p = tierProgress(rep);
   const avg = avgRating(rep);
   const next = p.next !== null ? TIER_LIMITS[p.next] : null;
 
   return (
-    <section className="space-y-4 rounded-2xl bg-surface-2 p-5" aria-labelledby="rep">
+    <section className="space-y-4 rounded-lg bg-surface-2 p-5" aria-labelledby="rep">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <h2 id="rep" className="h-sub">
           Tu reputación
@@ -250,7 +250,7 @@ function RowSkeleton() {
   return (
     <div className="space-y-3">
       {[0, 1].map((i) => (
-        <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+        <Skeleton key={i} className="h-24 w-full rounded-lg" />
       ))}
     </div>
   );

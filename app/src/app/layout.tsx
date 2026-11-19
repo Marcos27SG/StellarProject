@@ -1,15 +1,17 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
-import { Fraunces, Geist, Geist_Mono } from "next/font/google";
+import { Archivo, Atkinson_Hyperlegible } from "next/font/google";
 import "@pollar/react/styles.css";
 import "./globals.css";
 import { PactaMark } from "@/components/Logo";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Providers } from "@/components/Wallet";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], axes: ["SOFT", "opsz"] });
+// Archivo is variable in weight and width: the type scale uses width 115 (display, title-1) and 110
+// (title-2, amounts). Without the wdth axis the headings would render at normal width.
+const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin"], axes: ["wdth"] });
+// Atkinson Hyperlegible tells 1/l/I and 0/O apart, which matters in prices and codes. Not variable.
+const atkinson = Atkinson_Hyperlegible({ variable: "--font-atkinson", subsets: ["latin"], weight: ["400", "700"] });
 
 const DESCRIPTION =
   "Preventa de productos locales a precio fijo. Tu dinero queda protegido en Stellar hasta que recibes tu producto.";
@@ -30,14 +32,14 @@ export const viewport: Viewport = {
   themeColor: [
     // Browser chrome color: mirrors --bg in globals.css (metadata can't read CSS variables).
     { media: "(prefers-color-scheme: light)", color: "#f7f4ee" },
-    { media: "(prefers-color-scheme: dark)", color: "#14120f" },
+    { media: "(prefers-color-scheme: dark)", color: "#121714" },
   ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es">
-      <body className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} antialiased`}>
+      <body className={`${archivo.variable} ${atkinson.variable} antialiased`}>
         <Providers>
           <SiteHeader />
           <main className="mx-auto max-w-6xl px-4 py-8 sm:py-10 print:max-w-none print:p-0">{children}</main>

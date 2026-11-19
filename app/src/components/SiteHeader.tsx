@@ -35,7 +35,7 @@ export function SiteHeader() {
     <>
       <header className="sticky top-0 z-30 border-b border-line bg-bg print:hidden">
         <nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3" aria-label="Principal">
-          <Link href="/" aria-label="Pacta, inicio" className="rounded-xl">
+          <Link href="/" aria-label="Pacta, inicio" className="rounded-md">
             <Logo />
           </Link>
           <div className="flex items-center gap-1 text-sm">
@@ -109,7 +109,7 @@ function NavLink({
     <Link
       href={href}
       aria-current={on ? "page" : undefined}
-      className={`inline-flex min-h-10 items-center rounded-full px-3 ${block ? "flex min-h-11 w-full rounded-xl" : ""} ${
+      className={`inline-flex min-h-10 items-center rounded-full px-3 ${block ? "flex min-h-11 w-full rounded-md" : ""} ${
         on ? "bg-surface-2 font-semibold text-ink" : "text-ink-2 hover:text-ink"
       }`}
     >

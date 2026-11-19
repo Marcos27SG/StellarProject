@@ -243,7 +243,7 @@ export function ActionDialog({
                   aria-checked={stars === s}
                   aria-label={`${s} estrella${s > 1 ? "s" : ""}`}
                   onClick={() => setStars(s)}
-                  className="rounded-xl p-1.5 hover:bg-surface-2"
+                  className="rounded-md p-1.5 hover:bg-surface-2"
                 >
                   <Star className={`size-7 ${s <= stars ? "fill-accent text-accent" : "text-line-strong"}`} aria-hidden />
                 </button>
@@ -277,7 +277,7 @@ export function ActionDialog({
             ].map((o) => (
               <label
                 key={String(o.v)}
-                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm ${
+                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm ${
                   verdict === o.v ? "border-brand bg-brand-soft" : "border-line-strong"
                 }`}
               >
@@ -366,10 +366,10 @@ export function Stepper({
 }) {
   const clamp = (n: number) => Math.max(step, max !== undefined ? Math.min(max, n) : n);
   return (
-    <div className="inline-flex items-center gap-1 rounded-xl border border-line-strong bg-surface p-1">
+    <div className="inline-flex items-center gap-1 rounded-md border border-line-strong bg-surface p-1">
       <button
         type="button"
-        className="flex size-10 items-center justify-center rounded-lg text-ink hover:bg-surface-2 disabled:text-ink-3"
+        className="flex size-10 items-center justify-center rounded-sm text-ink hover:bg-surface-2 disabled:text-ink-3"
         onClick={() => onChange(clamp(value - step))}
         disabled={value <= step}
         aria-label="Menos"
@@ -392,7 +392,7 @@ export function Stepper({
       />
       <button
         type="button"
-        className="flex size-10 items-center justify-center rounded-lg text-ink hover:bg-surface-2 disabled:text-ink-3"
+        className="flex size-10 items-center justify-center rounded-sm text-ink hover:bg-surface-2 disabled:text-ink-3"
         onClick={() => onChange(clamp(value + step))}
         disabled={max !== undefined && value + step > max}
         aria-label="Más"
