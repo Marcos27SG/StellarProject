@@ -22,8 +22,8 @@ export const GLOSSARY = {
     definition: "USDC, un dólar digital estable: 1 USDC vale 1 $us. El precio queda fijo en dólares aunque cambie el boliviano. Esta demo usa USDC de prueba de la testnet, sin valor real.",
   },
   fondo: {
-    term: "Fondo de garantía",
-    definition: "Un fondo común que se alimenta con una pequeña comisión de cada pago a productores (el porcentaje está en Transparencia). Completa los reembolsos si la custodia y el aval no alcanzan.",
+    term: "Fondo común",
+    definition: "Un fondo de todos, que se forma con una pequeña parte de cada pago a productores (el porcentaje está en Transparencia). Ayuda a cubrir los reembolsos cuando la custodia y el aval no alcanzan; cada caso puede usar solo una parte del fondo.",
   },
   hito: {
     term: "Hito",

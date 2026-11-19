@@ -47,7 +47,7 @@ export default function CampaignView({ id }: { id: string }) {
 
   if (!valid || item.error) {
     return (
-      <EmptyState title="No encontramos esta preventa" action={{ href: "/", label: "Volver al mercado" }}>
+      <EmptyState title="No encontramos esta preventa" action={{ href: "/", label: "Ver preventas" }}>
         {item.error ?? "El enlace no es válido."}
       </EmptyState>
     );

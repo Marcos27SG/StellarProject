@@ -19,7 +19,7 @@ export default function ProducerProfile({ address }: { address: string }) {
   const now = useNow();
 
   if (!valid) {
-    return <EmptyState title="Dirección no válida" action={{ href: "/", label: "Volver al mercado" }} />;
+    return <EmptyState title="Dirección no válida" action={{ href: "/", label: "Ver preventas" }} />;
   }
 
   const mine = (list.data ?? []).filter((i) => i.c.seller === address).sort((a, b) => Number(b.c.created_at - a.c.created_at));
@@ -33,7 +33,7 @@ export default function ProducerProfile({ address }: { address: string }) {
   return (
     <div className="space-y-10">
       <Link href="/" className="btn-ghost -ml-3">
-        <ArrowLeft className="size-4" aria-hidden /> Mercado
+        <ArrowLeft className="size-5" aria-hidden /> Inicio
       </Link>
 
       <header className="flex flex-col gap-5 sm:flex-row sm:items-center">
@@ -52,9 +52,9 @@ export default function ProducerProfile({ address }: { address: string }) {
           </p>
           {s ? (
             <div className="flex flex-wrap items-center gap-2">
-              <TierBadge tier={s.tier.tier} />
-              <Streak n={s.rep.streak} />
+              <TierBadge tier={s.tier.tier} size="md" />
               <Stars value={avgRating(s.rep)} count={s.rep.rating_count} />
+              <Streak n={s.rep.streak} compact />
             </div>
           ) : (
             <Skeleton className="h-6 w-56" />
@@ -87,9 +87,9 @@ export default function ProducerProfile({ address }: { address: string }) {
               <>solo puede vender con pago contra entrega hasta cumplir 3 preventas seguidas por cada incumplimiento.</>
             )}
           </p>
-          <p className="text-sm text-ink-2">Este historial está en el contrato de Stellar: nadie, ni Ayni, puede editarlo ni borrar un incumplimiento.</p>
+          <p className="text-ink-2">Este historial está en el contrato de Stellar: nadie, ni Ayni, puede editarlo ni borrar un incumplimiento.</p>
           <details className="group">
-            <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm font-semibold text-brand">
+            <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm font-bold text-brand">
               Ver todas las cifras
               <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden />
             </summary>
@@ -132,7 +132,7 @@ function CampaignGroup({
       {loading ? (
         <Skeleton className="h-48 w-full rounded-lg" />
       ) : items.length === 0 ? (
-        <p className="text-sm text-ink-2">{empty}</p>
+        <p className="text-ink-2">{empty}</p>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((i) => (

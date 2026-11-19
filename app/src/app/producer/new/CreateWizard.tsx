@@ -758,7 +758,7 @@ function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps
           </li>
           <li className="flex flex-wrap justify-between gap-2 text-ink-2">
             <span>
-              {formatPct(feeBps)} para el <Term k="fondo">fondo de garantía</Term>
+              {formatPct(feeBps)} para el <Term k="fondo">fondo común</Term>
             </span>
             <Money amount={flow.fee} category={category} size="sm" showBs={false} />
           </li>
