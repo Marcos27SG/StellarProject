@@ -56,7 +56,7 @@ interface WalletContextValue {
   openHistory: () => void;
 }
 
-export const READ_ONLY_REASON = "Modo demostración: ves datos reales de Stellar testnet, pero todavía no se puede comprar ni firmar.";
+export const READ_ONLY_REASON = "Modo demostración: ves datos reales de Stellar testnet, pero todavía no se puede reservar ni firmar.";
 /** id of the one banner that explains read-only mode; disabled buttons point to it with aria-describedby. */
 export const READ_ONLY_ID = "read-only-note";
 

@@ -217,7 +217,7 @@ function buyerActions(c: Campaign, h: Holding | null, ctx: ActionContext): Actio
           id: "buy",
           role,
           method: "buy",
-          label: "Comprar",
+          label: "Reservar",
           description: `Pagas hoy al precio bloqueado. Si no se llega a la meta de ${c.min_units} ${unitLabel(cat, c.min_units)}, recuperas el 100%.`,
           input: "units",
           maxUnits: cat.unit.maxPerOrder ? Math.min(left, cat.unit.maxPerOrder) : left,

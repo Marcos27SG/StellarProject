@@ -99,7 +99,7 @@ export default function Poster({ id }: { id: string }) {
 
           <figure className="flex flex-col items-center gap-2 justify-self-center">
             {origin ? <QRCodeSVG value={url} size={240} level="M" marginSize={2} /> : <div className="size-[240px]" />}
-            <figcaption className="max-w-[240px] text-center text-base font-semibold">Escanea con la cámara de tu teléfono para comprar</figcaption>
+            <figcaption className="max-w-[240px] text-center text-base font-semibold">Escanea con la cámara de tu teléfono para reservar</figcaption>
           </figure>
         </div>
 
