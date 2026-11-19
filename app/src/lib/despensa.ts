@@ -118,7 +118,7 @@ const ERRORS: Record<number, [string, string]> = {
   5: ["SoldOut", "No quedan suficientes unidades."],
   6: ["InsufficientUnits", "No tienes suficientes vales."],
   7: ["AdvanceTooHigh", "El adelanto supera el límite de tu nivel de reputación."],
-  8: ["BondTooLow", "La garantía (aval) no cubre este adelanto."],
+  8: ["BondTooLow", "El aval no cubre este adelanto."],
   9: ["TooEarly", "Todavía no se puede: espera a que termine el plazo."],
   10: ["AlreadyRated", "Ya calificaste esta campaña."],
   11: ["NothingToClaim", "No hay nada que reclamar."],
@@ -128,7 +128,7 @@ const ERRORS: Record<number, [string, string]> = {
   15: ["SelfDealing", "El productor o el verificador no pueden comprar ni recibir sus propios vales."],
   16: ["DisputeOpen", "Hay una disputa abierta."],
   17: ["NoDispute", "No hay una disputa abierta."],
-  18: ["MinNotReached", "Aún no se alcanzó la meta mínima de ventas."],
+  18: ["MinNotReached", "Aún no se llegó al mínimo de ventas."],
   19: ["VerifierNotAllowed", "Este verificador no está autorizado. Elige uno de la lista o pide a Ayni que lo autorice."],
   20: ["WindowOutOfRange", "El plazo de disputa debe estar entre 1 y 30 días."],
   21: ["TooLong", "El texto es demasiado largo. Acórtalo e inténtalo de nuevo."],
@@ -285,10 +285,10 @@ export function statusOf(c: Campaign): StatusTag {
 
 export const STATUS_LABEL: Record<StatusTag, string> = {
   Funding: "En preventa",
-  Active: "En producción / entrega",
-  Completed: "Completada",
-  Failed: "No alcanzó la meta: reembolsada",
-  Defaulted: "Incumplida: compradores reembolsados",
+  Active: "En entrega",
+  Completed: "Completado",
+  Failed: "No llegó al mínimo",
+  Defaulted: "Incumplida",
 };
 
 export const TIER_LABEL = ["Restringido", "Nuevo", "Confiable", "Destacado", "Ejemplar"];

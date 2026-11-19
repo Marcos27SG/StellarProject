@@ -6,7 +6,7 @@ import type { Campaign, CampaignInput } from "./despensa";
 import { parseUsd } from "./format";
 import { INLINE_HARD_LIMIT, METADATA_SCHEMA_V1, validateAttributes, type CampaignMetadata } from "./metadata";
 
-export const WIZARD_STEPS = ["Producto", "Detalles", "Precio y meta", "Adelantos", "Revisar"] as const;
+export const WIZARD_STEPS = ["Producto", "Detalles", "Precio y mínimo", "Adelantos", "Revisar"] as const;
 export type WizardStep = 0 | 1 | 2 | 3 | 4;
 
 export interface MilestoneDraft {
@@ -170,9 +170,9 @@ export function validateStep(step: WizardStep, d: CampaignDraft, ctx: Validation
       if (price === null || price <= BigInt(0)) e.price = "Ingresa un precio mayor a 0 (por ejemplo 0.60).";
       const min = units(d.minUnits);
       const max = units(d.maxUnits);
-      if (min === null || min < 1) e.minUnits = "La meta mínima debe ser al menos 1.";
+      if (min === null || min < 1) e.minUnits = "La cantidad mínima debe ser al menos 1.";
       if (max === null || max < 1) e.maxUnits = "Ingresa cuánto puedes producir.";
-      else if (min !== null && min > max) e.minUnits = "La meta mínima no puede superar lo que puedes producir.";
+      else if (min !== null && min > max) e.minUnits = "La cantidad mínima no puede superar lo que puedes producir.";
       const sale = daySeconds(d.saleEnd);
       const deadline = daySeconds(d.deadline);
       if (sale === null || Number(sale) <= ctx.nowSeconds) e.saleEnd = "El cierre de la preventa debe ser una fecha futura.";

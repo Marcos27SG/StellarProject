@@ -132,7 +132,7 @@ export default function CatalogPreview() {
                     <Item label="Precio de muestra">
                       <Money amount={c.unit_price} category={cat} size="sm" />
                     </Item>
-                    <Item label="Meta total vendida">
+                    <Item label="Si se vende todo">
                       <Money amount={c.unit_price * BigInt(c.max_units)} category={cat} size="sm" />
                     </Item>
                     <Item label="Entrega">{cat.deliveryMode}{cat.perishable ? " · perecedero" : ""}</Item>

@@ -170,8 +170,8 @@ function closeExpiredSale(c: Campaign, role: Role): Action {
     method: "close_sale",
     label: "Cerrar preventa",
     description: reached
-      ? "La preventa terminó y alcanzó la meta: pasa a producción."
-      : "La preventa terminó sin alcanzar la meta: se habilitan los reembolsos del 100%.",
+      ? "La preventa terminó y llegó al mínimo: pasa a producción."
+      : "La preventa terminó sin llegar al mínimo: se habilitan los reembolsos del 100%.",
     tone: "primary",
   };
 }
@@ -218,7 +218,7 @@ function buyerActions(c: Campaign, h: Holding | null, ctx: ActionContext): Actio
           role,
           method: "buy",
           label: "Reservar",
-          description: `Pagas hoy al precio bloqueado. Si no se llega a la meta de ${c.min_units} ${unitLabel(cat, c.min_units)}, recuperas el 100%.`,
+          description: `Pagas hoy al precio bloqueado. Si no se llega al mínimo de ${c.min_units} ${unitLabel(cat, c.min_units)}, recuperas el 100%.`,
           input: "units",
           maxUnits: cat.unit.maxPerOrder ? Math.min(left, cat.unit.maxPerOrder) : left,
           confirm: "El pago queda en custodia hasta que recibas tu pedido.",
@@ -312,7 +312,7 @@ function buyerActions(c: Campaign, h: Holding | null, ctx: ActionContext): Actio
     case "Defaulted": {
       if (outstanding > 0) {
         out.push(
-          refundAction(role, "Se te devuelve desde la custodia, luego el aval y luego el fondo de garantía."),
+          refundAction(role, "Se te devuelve desde la custodia, luego el aval y luego el fondo común."),
         );
       }
       if (h && (h.delivered > 0 || h.refunded > 0) && !h.rated) out.push(rateAction(role));
@@ -339,7 +339,7 @@ function sellerActions(c: Campaign, ctx: ActionContext): Action[] {
           role,
           method: "close_sale",
           label: "Cerrar preventa y empezar",
-          description: "Ya alcanzaste la meta. Cierras la venta y pasas a producción.",
+          description: "Ya llegaste al mínimo. Cierras la venta y pasas a producción.",
           confirm: "Después de cerrar ya no se puede vender más.",
           irreversible: true,
           tone: "primary",
