@@ -30,7 +30,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { getCategory } from "@/catalog";
-import { Stepper } from "@/components/ActionPanel";
+import { ActionDialog, Stepper } from "@/components/ActionPanel";
+import { BuyPanel } from "@/components/BuyPanel";
+import { MyVouchers } from "@/components/MyVouchers";
+import { nextActions, type Action } from "@/lib/actions";
 import { MoneyStatus, AffixInput, CampaignCardSkeleton, Dialog, EmptyState, Field, Hint, MoneyBox, Notice, Spinner, SummaryRow, Tip, TxSteps, VoucherSkeleton, type TxPhase } from "@/components/ui";
 import { Stars, StatusPill, Streak, TierBadge, TierLadder, VOUCHER_STATUS, VoucherPill, type VoucherState } from "@/components/badges";
 import { CategoryIcon } from "@/components/CategoryIcon";
@@ -42,7 +45,7 @@ import { VoucherQR } from "@/components/MyVouchers";
 import { Puntada } from "@/components/Puntada";
 import { useToast } from "@/components/Toast";
 import { voucherCode, VoucherTicket } from "@/components/VoucherTicket";
-import { toAmount, type Campaign, type StatusTag } from "@/lib/despensa";
+import { toAmount, type Campaign, type Holding, type StatusTag } from "@/lib/despensa";
 
 const DAY = 86_400n;
 const BUYER = "GCCNUJF362MBLA3RN2G3VH4KDMVTNNPS5M32AL5CFW65H66PIHC3L33P";
@@ -98,6 +101,7 @@ export function DesignSystem({ now }: { now: bigint }) {
   const [alert, setAlert] = useState(false);
   const [units, setUnits] = useState(10);
   const [replay, setReplay] = useState(0);
+  const [dialog, setDialog] = useState<{ a: Action; c: Campaign } | null>(null);
   const phases: TxPhase[] = ["preparing", "signing", "confirming", "done", "pending", "unconfirmed", "error"];
   const c = mk(now, {});
 
@@ -300,6 +304,11 @@ export function DesignSystem({ now }: { now: bigint }) {
         </div>
       </Section>
 
+      <Section title="Checkout y acciones (con datos de muestra)">
+        <CheckoutDemo now={now} open={(a, c) => setDialog({ a, c })} />
+        {dialog && <ActionDialog action={dialog.a} c={dialog.c} category={milk} onClose={() => setDialog(null)} />}
+      </Section>
+
       <Section title="Hoja, diálogo, avisos y consejos">
         <div className="flex flex-wrap gap-3">
           <button type="button" className="btn" onClick={() => setSheet(true)}>
@@ -406,6 +415,30 @@ export function DesignSystem({ now }: { now: bigint }) {
           )}
         </div>
       </Section>
+    </div>
+  );
+}
+
+/** The buy panel of an open sale, the buyer's vouchers after a delivery, and buttons that open each action's sheet. */
+function CheckoutDemo({ now, open }: { now: bigint; open: (a: Action, c: Campaign) => void }) {
+  const live = mk(now, { sold: 180 });
+  const buy = nextActions(live, null, "buyer", now, { category: milk }).find((a) => a.id === "buy");
+  const active = mk(now, { tag: "Active", sold: 640, pending: 2, released_bps: 2000 });
+  const h: Holding = { units: 3, pending: 2, pending_since: now - 3600n, disputed: false, delivered: 0, refunded: 0, rated: false };
+  const acts = nextActions(active, h, "buyer", now, { category: milk });
+  return (
+    <div className="grid max-w-4xl items-start gap-5 sm:grid-cols-2">
+      <BuyPanel c={live} category={milk} buy={buy} bar={false} />
+      <div className="space-y-4">
+        <MyVouchers c={active} h={h} buyer={BUYER} category={milk} actions={acts.filter((a) => a.id !== "buy")} now={now} disputeWindow={active.dispute_window} />
+        <div className="flex flex-wrap gap-2">
+          {acts.map((a) => (
+            <button key={a.id} type="button" className="btn-secondary" onClick={() => open(a, active)}>
+              Abrir: {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

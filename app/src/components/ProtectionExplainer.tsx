@@ -1,10 +1,11 @@
 "use client";
 
 import { ChevronDown, Lock, PackageCheck, RotateCcw, ShieldCheck, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { CategoryDef } from "@/catalog";
 import type { Campaign } from "@/lib/despensa";
 import { formatDate, formatDuration, formatPct, formatQty } from "@/lib/format";
+import { PoolIcon } from "./icons";
 import { Money } from "./Money";
 import { Term } from "./ui";
 
@@ -12,6 +13,8 @@ import { Term } from "./ui";
  * "Cómo está protegido tu dinero", with this campaign's real numbers. Refund conditions, time limits
  * and advances are risks, so they stay visible; only the refund order is behind a disclosure.
  * `pool` is the share of the guarantee pool one default may use (pool x pool_cap_bps).
+ * The wording is the reference for every shorter protection line in the app (cards, sheet, previews):
+ * the 100% is promised only for a sale that doesn't reach its minimum.
  */
 export function ProtectionExplainer({
   c,
@@ -26,12 +29,12 @@ export function ProtectionExplainer({
 }) {
   const advanceBps = c.milestones.reduce((s, m) => s + m.bps, 0);
   const windowText = disputeWindow ? formatDuration(Number(disputeWindow)) : "unos días";
-  const items: { icon: LucideIcon; body: ReactNode }[] = [
+  const items: { icon: LucideIcon | ComponentType<{ className?: string }>; body: ReactNode }[] = [
     {
       icon: RotateCcw,
       body: (
         <>
-          <b>Recuperas el 100%</b> si no se llega a la meta de {formatQty(c.min_units, category)} antes del {formatDate(c.sale_end)}.
+          <b>Recuperas el 100%</b> si no se llega al mínimo de {formatQty(c.min_units, category)} antes del {formatDate(c.sale_end)}.
         </>
       ),
     },
@@ -59,11 +62,19 @@ export function ProtectionExplainer({
         ]
       : []),
     {
+      icon: PoolIcon,
+      body: (
+        <>
+          <b>Un fondo común ayuda a cubrir reembolsos</b> si un productor no cumple. Lo forma una parte de cada cobro de todos los productores.
+        </>
+      ),
+    },
+    {
       icon: Lock,
       body: (
         <>
-          <b>Nadie puede tomar el dinero fuera de estas reglas</b>, tampoco Ayni: está en <Term k="custodia">custodia</Term> en un contrato de
-          Stellar.
+          <b>Nadie puede tomar el dinero fuera de estas reglas</b>, tampoco Ayni: está en <Term k="custodia">custodia</Term> en un contrato público
+          de Stellar.
         </>
       ),
     },
@@ -76,25 +87,28 @@ export function ProtectionExplainer({
       </h2>
       <ul className="space-y-3">
         {items.map(({ icon: Icon, body }, i) => (
-          <li key={i} className="flex gap-3 text-sm leading-relaxed text-ink-2 [&_b]:font-semibold [&_b]:text-ink">
-            <Icon className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden />
+          <li key={i} className="flex gap-3 leading-relaxed text-ink-2 [&_b]:font-bold [&_b]:text-ink">
+            <Icon className="mt-0.5 size-[22px] shrink-0 text-brand" aria-hidden />
             <p>{body}</p>
           </li>
         ))}
       </ul>
-      <details className="group rounded-md bg-surface-2 px-4 py-3">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold">
+      <details className="group rounded-md bg-surface-2 px-4 py-1">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 font-bold">
           ¿Qué pasa si el productor no cumple?
-          <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden />
+          <ChevronDown className="size-5 transition group-open:rotate-180" aria-hidden />
         </summary>
-        <p className="mt-3 text-sm text-ink-2">Se te devuelve lo que no recibiste, en este orden, hasta cubrir el precio que pagaste:</p>
-        <ol className="mt-3 divide-y divide-line text-sm">
+        <p className="mt-2 text-ink-2">
+          Se te devuelve lo que no recibiste, en este orden, hasta cubrir el precio que pagaste. Si después de un adelanto no alcanza, el
+          reembolso puede ser menor al 100%:
+        </p>
+        <ol className="mt-3 divide-y divide-line">
           {[
             { label: "Lo que queda en custodia", amount: c.escrow },
             { label: <Term k="aval">El aval del productor</Term>, amount: c.bond_total - c.bond_slashed },
-            { label: <Term k="fondo">El fondo de garantía (tope por caso)</Term>, amount: pool },
+            { label: <Term k="fondo">El fondo común (tope por caso)</Term>, amount: pool },
           ].map((l, i) => (
-            <li key={i} className="flex items-center justify-between gap-3 py-2">
+            <li key={i} className="flex items-center justify-between gap-3 py-2.5">
               <span>
                 {i + 1}. {l.label}
               </span>
@@ -106,7 +120,7 @@ export function ProtectionExplainer({
             </li>
           ))}
         </ol>
-        <p className="mt-2 text-sm text-ink-2">Además, el productor pierde su racha y baja de nivel: la próxima vez no podrá recibir adelantos.</p>
+        <p className="mt-2 mb-3 text-ink-2">Además, el productor pierde su racha y baja de nivel: la próxima vez no podrá recibir adelantos.</p>
       </details>
     </section>
   );

@@ -26,7 +26,7 @@ function steps(c: Campaign, category: CategoryDef): Step[] {
     case "Failed":
       return [
         { ...sale, state: "done" },
-        { label: "No llegó a la meta", detail: "Todos recuperan el 100%", state: "failed" },
+        { label: "No llegó al mínimo", detail: "Cada comprador recupera el 100%", state: "failed" },
       ];
     case "Defaulted":
       return [
@@ -39,7 +39,7 @@ function steps(c: Campaign, category: CategoryDef): Step[] {
 
 const DOT: Record<StepState, string> = {
   done: "bg-brand text-brand-ink",
-  current: "bg-surface text-brand ring-2 ring-brand",
+  current: "bg-surface text-brand ring-2 ring-brand ring-inset",
   todo: "bg-surface-2 text-ink-3",
   failed: "bg-surface-2 text-ink-2",
   defaulted: "bg-danger-soft text-danger",
@@ -49,7 +49,7 @@ const STATE_SR: Record<StepState, string> = {
   done: "hecho",
   current: "etapa actual",
   todo: "pendiente",
-  failed: "terminó sin llegar a la meta",
+  failed: "terminó sin llegar al mínimo",
   defaulted: "incumplida",
 };
 
@@ -80,11 +80,11 @@ export function Timeline({ c, category }: { c: Campaign; category: CategoryDef }
             )}
           </span>
           <div>
-            <p className={`text-sm font-semibold ${s.state === "todo" ? "text-ink-2" : "text-ink"}`}>
+            <p className={`font-bold ${s.state === "todo" ? "text-ink-2" : "text-ink"}`}>
               {s.label}
               <span className="sr-only"> ({STATE_SR[s.state]})</span>
             </p>
-            <p className="text-sm text-ink-2">{s.detail}</p>
+            <p className="t-detail text-ink-2">{s.detail}</p>
           </div>
         </li>
       ))}

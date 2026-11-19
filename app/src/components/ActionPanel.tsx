@@ -3,16 +3,18 @@
 // Renders Action[] from lib/actions.ts. Components never decide what is allowed: they show what
 // nextActions returned, collect the inputs the action asks for, and submit argsFor(...).
 
-import { Minus, Plus, Scale, Star, TriangleAlert } from "lucide-react";
+import { CircleAlert, Lock, Minus, PackageCheck, Plus, RotateCcw, Scale, Star, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import type { CategoryDef } from "@/catalog";
 import { argsFor, requiredBondFor, successMessage, type Action, type ActionValues } from "@/lib/actions";
 import { isValidAddress, toAmount, type Campaign } from "@/lib/despensa";
-import { CURRENCY, formatBs, formatQty } from "@/lib/format";
-import { invalidateCampaign } from "@/lib/hooks";
+import { CURRENCY, decimalsFor, formatBs, formatMoney, formatPct, formatQty } from "@/lib/format";
+import { invalidateCampaign, useContractConfig } from "@/lib/hooks";
+import { KNOWN_VERIFIERS } from "@/lib/verifiers";
 import { Money } from "./Money";
-import { BUSY_LABEL, Dialog, Field, Notice, Spinner, TxSteps } from "./ui";
+import { useToast } from "./Toast";
+import { AffixInput, BUSY_LABEL, Dialog, Field, MoneyBox, Notice, Spinner, SummaryRow, TxSteps } from "./ui";
 import { READ_ONLY_ID, useAction, useWallet } from "./Wallet";
 
 const BPS = BigInt(10_000);
@@ -118,9 +120,14 @@ export function ActionList({
   );
 }
 
+/** What is still in the contract for `units` vouchers: the price minus any advances already released. */
+export function unpaidAmount(c: Campaign, units: number): bigint {
+  return (BigInt(units) * c.unit_price * (BPS - BigInt(c.released_bps))) / BPS;
+}
+
 /** What this action moves, in money, for the confirm step. Null when there is nothing to show. */
 function moneyLine(a: Action, c: Campaign, units: number): { label: string; amount: bigint } | null {
-  const unpaid = (n: number) => (BigInt(n) * c.unit_price * (BPS - BigInt(c.released_bps))) / BPS;
+  const unpaid = (n: number) => unpaidAmount(c, n);
   switch (a.id) {
     case "buy":
       return { label: "Total a pagar", amount: c.unit_price * BigInt(units) };
@@ -151,6 +158,8 @@ export function ActionDialog({
 }) {
   const { address, connect } = useWallet();
   const tx = useAction();
+  const toast = useToast();
+  const cfg = useContractConfig();
   const step = Math.max(1, category.unit.step);
   const [units, setUnits] = useState(initial.units ?? (a.input === "units" && a.id !== "buy" ? a.maxUnits ?? step : step));
   const [addr, setAddr] = useState(initial.address ?? "");
@@ -220,17 +229,44 @@ export function ActionDialog({
   const alert = !!a.irreversible && !a.input;
   const showError = touched && error;
 
+  const isBuy = a.id === "buy";
+  const decimals = decimalsFor(category);
+  const total = c.unit_price * BigInt(units);
+  const feePct = cfg.data ? formatPct(cfg.data.fee_bps) : null;
+  const verifierName = KNOWN_VERIFIERS.find((v) => v.address === c.verifier)?.name ?? `el verificador (${category.verifierLabel.toLowerCase()})`;
+  const title = isBuy ? "Confirma tu reserva" : a.id === "dispute" ? "¿Abrir una disputa?" : alert ? `¿${a.label}?` : a.label;
+  const close = () => {
+    // After a reservation, a toast points to the voucher (the sheet already said so; the toast is a reminder).
+    if (isBuy && tx.phase === "done") toast({ text: "Reserva guardada. Ya está en Mis vales.", action: { label: "Ver vale", href: "/me" } });
+    onClose();
+  };
+  const cta = !address
+    ? "Entrar para continuar"
+    : isBuy
+      ? null
+      : a.id === "dispute"
+        ? "Abrir disputa"
+        : a.irreversible
+          ? `Sí, ${a.label.charAt(0).toLowerCase()}${a.label.slice(1)}`
+          : a.label;
+
   return (
     <Dialog
       open
-      onClose={onClose}
-      title={a.label}
+      onClose={close}
+      title={title}
       variant={alert ? "alert" : "sheet"}
       icon={a.id === "dispute" ? Scale : TriangleAlert}
       tone={a.tone === "danger" ? "warning" : "brand"}
     >
       <div className="space-y-5">
-        <p className="text-sm text-ink-2">{a.description}</p>
+        {a.id === "dispute" ? (
+          <p>
+            El pago de lo que no recibiste queda <b>congelado</b>. Nadie cobra hasta que {verifierName} revise las pruebas y decida.
+          </p>
+        ) : (
+          !isBuy && <p className="text-ink-2">{a.description}</p>
+        )}
 
         {needs.address && (
           <Field label={a.id === "transfer" ? "Dirección de quien recibe" : "Dirección del comprador"}>
@@ -252,14 +288,14 @@ export function ActionDialog({
             <p id="qty-label" className="mb-1.5 text-[0.9375rem] font-bold">
               Cantidad ({category.unit.plural})
             </p>
-            <Stepper value={units} onChange={setUnits} step={step} max={a.maxUnits} unit={category.unit.plural} label={`Cantidad en ${category.unit.plural}`} />
+            <Stepper value={units} onChange={setUnits} step={step} max={a.maxUnits} unit={units === 1 ? category.unit.singular : category.unit.plural} label={`Cantidad en ${category.unit.plural}`} />
             {a.maxUnits !== undefined && <p className="t-detail mt-1.5 text-ink-2">Máximo {formatQty(a.maxUnits, category)}.</p>}
           </div>
         )}
 
         {needs.stars && (
           <fieldset>
-            <legend className="mb-1.5 text-sm font-medium">Tu calificación</legend>
+            <legend className="mb-1.5 text-[0.9375rem] font-bold">Tu calificación</legend>
             <div className="flex gap-1" role="radiogroup" aria-label="Estrellas">
               {[1, 2, 3, 4, 5].map((s) => (
                 <button
@@ -271,7 +307,7 @@ export function ActionDialog({
                   onClick={() => setStars(s)}
                   className="rounded-md p-1.5 hover:bg-surface-2"
                 >
-                  <Star className={`size-7 ${s <= stars ? "fill-accent text-accent" : "text-line-strong"}`} aria-hidden />
+                  <Star className={`size-8 ${s <= stars ? "fill-accent text-accent" : "text-line-strong"}`} aria-hidden />
                 </button>
               ))}
             </div>
@@ -279,12 +315,15 @@ export function ActionDialog({
         )}
 
         {needs.amount && (
-          <Field
-            label={`Monto en dólares (${CURRENCY})`}
-            hint={parsedAmount !== null ? `≈ Bs ${formatBs(parsedAmount)} al tipo de cambio referencial.` : "Por ejemplo 50,00"}
-          >
-            <input className="w-full" inputMode="decimal" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value.replace(",", "."))} />
-            {a.id === "add_bond" && <BondHint c={c} category={category} />}
+          <Field label="Monto" hint={a.id === "add_bond" ? <BondHint c={c} category={category} /> : "Por ejemplo 50,00"}>
+            <AffixInput
+              prefix={CURRENCY}
+              suffix={parsedAmount !== null ? `≈ Bs ${formatBs(parsedAmount)}` : undefined}
+              inputMode="decimal"
+              placeholder="0,00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(",", "."))}
+            />
           </Field>
         )}
 
@@ -296,18 +335,16 @@ export function ActionDialog({
 
         {needs.verdict && (
           <fieldset className="grid gap-2">
-            <legend className="mb-1.5 text-sm font-medium">¿La entrega ocurrió?</legend>
+            <legend className="mb-1.5 text-[0.9375rem] font-bold">¿La entrega ocurrió?</legend>
             {[
               { v: true, label: "Sí, entregó", hint: "Se paga al productor." },
               { v: false, label: "No entregó", hint: "El comprador recupera sus vales." },
             ].map((o) => (
               <label
                 key={String(o.v)}
-                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm ${
-                  verdict === o.v ? "border-brand bg-brand-soft" : "border-line-strong"
-                }`}
+                className={`flex min-h-13 cursor-pointer items-start gap-3 rounded-md border-[1.5px] p-3 ${verdict === o.v ? "border-brand bg-brand-soft" : "border-line-strong"}`}
               >
-                <input type="radio" name="verdict" className="mt-1 accent-[var(--brand)]" checked={verdict === o.v} onChange={() => setVerdict(o.v)} />
+                <input type="radio" name="verdict" className="mt-1 size-4" checked={verdict === o.v} onChange={() => setVerdict(o.v)} />
                 <span>
                   <b className="block">{o.label}</b>
                   <span className="text-ink-2">{o.hint}</span>
@@ -317,31 +354,78 @@ export function ActionDialog({
           </fieldset>
         )}
 
-        {money && (
-          <p className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line pt-4 text-sm">
-            <span className="text-ink-2">{money.label}</span>
-            <Money amount={money.amount} category={category} size="lg" />
-          </p>
+        {isBuy && !settled ? (
+          // Board 05: before money moves, the amount, where it goes and what happens if it fails.
+          <div className="space-y-3">
+            <SummaryRow label={`${formatQty(units, category)} × ${formatMoney(c.unit_price, decimals)}`} value={formatMoney(total, decimals)} />
+            <div className="h-px bg-line" />
+            <SummaryRow
+              strong
+              label="Pagas ahora"
+              value={
+                <>
+                  {formatMoney(total, decimals)} <span className="font-normal text-ink-2">≈ Bs {formatBs(total, decimals)}</span>
+                </>
+              }
+            />
+            <p className="t-detail text-ink-2">
+              Sin comisión para ti.{feePct && <> El {feePct} que va al fondo común lo paga el productor cuando cobra.</>}
+            </p>
+            <MoneyBox
+              lines={[
+                {
+                  icon: Lock,
+                  text: (
+                    <>
+                      Tu dinero va a un <b>contrato público</b>, no a Ayni ni al productor.
+                    </>
+                  ),
+                },
+                { icon: RotateCcw, text: "Si no se llega al mínimo, vuelve a ti completo." },
+                {
+                  icon: PackageCheck,
+                  text: "Si sigue adelante, el productor cobra cuando confirmas que recibiste. Si no cumple, se te devuelve hasta lo que pagaste: de la custodia, de su aval y del fondo común.",
+                },
+              ]}
+            />
+          </div>
+        ) : (
+          money &&
+          !settled && (
+            <div className="border-t border-line pt-4">
+              <SummaryRow strong label={money.label} value={<Money amount={money.amount} category={category} size="lg" />} />
+            </div>
+          )
         )}
 
         {a.confirm &&
           !settled &&
           (a.irreversible ? (
-            <Notice tone="warning" title="No se puede deshacer">
-              {a.confirm}
-            </Notice>
+            alert ? (
+              <div className="space-y-1">
+                <p className="text-ink-2">{a.confirm}</p>
+                <p className="flex items-center gap-1.5 text-sm font-bold text-danger">
+                  <CircleAlert className="size-4 shrink-0" aria-hidden /> No se puede deshacer.
+                </p>
+              </div>
+            ) : (
+              <Notice tone="warning" title="No se puede deshacer">
+                {a.confirm}
+              </Notice>
+            )
           ) : (
-            <Notice tone="neutral">{a.confirm}</Notice>
+            !isBuy && <Notice tone="neutral">{a.confirm}</Notice>
           ))}
 
         {showError && !settled && (
-          <p className="text-sm text-danger" role="alert">
+          <p className="t-detail flex items-center gap-1.5 text-danger" role="alert">
+            <CircleAlert className="size-4 shrink-0" aria-hidden />
             {error}
           </p>
         )}
 
         <TxSteps phase={tx.phase} error={tx.error} hash={tx.hash} failedAt={tx.failedAt} success={successMessage(a, category)}>
-          {a.id === "buy" && (
+          {isBuy && (
             <Link href="/me" className="link">
               Ver mis vales
             </Link>
@@ -361,18 +445,17 @@ export function ActionDialog({
                 <>
                   <Spinner /> {BUSY_LABEL[tx.phase]}
                 </>
-              ) : address ? (
-                a.irreversible ? (
-                  `Sí, ${a.label.charAt(0).toLowerCase()}${a.label.slice(1)}`
-                ) : (
-                  a.label
-                )
               ) : (
-                "Entrar para continuar"
+                (cta ?? (
+                  <>
+                    Confirmar y pagar <span className="opacity-60">·</span>{" "}
+                    <span className="font-display tabular-nums [font-stretch:105%]">{formatMoney(total, decimals)}</span>
+                  </>
+                ))
               )}
             </button>
           )}
-          <button type="button" className={`${alert && !settled ? "btn-secondary" : "btn-ghost"} w-full`} onClick={onClose}>
+          <button type="button" className={`${alert && !settled ? "btn-secondary" : "btn-ghost"} w-full`} onClick={close}>
             {settled ? "Cerrar" : alert ? "Mejor no" : "Volver"}
           </button>
         </div>
