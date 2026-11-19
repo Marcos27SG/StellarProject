@@ -5,6 +5,7 @@ import "@pollar/react/styles.css";
 import "./globals.css";
 import { AyniMark } from "@/components/Logo";
 import { SiteHeader } from "@/components/SiteHeader";
+import { ToastProvider } from "@/components/Toast";
 import { Providers } from "@/components/Wallet";
 
 // Archivo is variable in weight and width: the type scale uses width 115 (display, title-1) and 110
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="es">
       <body className={`${archivo.variable} ${atkinson.variable} antialiased`}>
         <Providers>
+          <ToastProvider>
           <SiteHeader />
           <main className="mx-auto max-w-6xl px-4 py-8 sm:py-10 print:max-w-none print:p-0">{children}</main>
           <footer className="mx-auto mt-8 max-w-6xl border-t border-line px-4 pt-6 pb-28 text-sm text-ink-2 lg:pb-10 print:hidden">
@@ -60,6 +62,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </p>
             <p className="mt-1">Stellar testnet · Hackathon Stellar Bolivia 2026 · Los montos son de prueba.</p>
           </footer>
+          </ToastProvider>
         </Providers>
       </body>
     </html>

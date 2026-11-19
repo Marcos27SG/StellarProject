@@ -98,16 +98,19 @@ export function VoucherQR({ c, buyer, units, category }: { c: Campaign; buyer: s
   useEffect(() => setOrigin(window.location.origin), []);
   const url = `${origin}/producer/deliver?campaign=${c.id.toString()}&buyer=${buyer}&units=${units}`;
   return (
-    <figure className="theme-light flex flex-col items-center gap-2 rounded-lg border border-line bg-surface p-4 text-ink">
-      {origin ? (
-        <QRCodeSVG value={url} size={200} level="M" marginSize={2} title={`Código de tu ${copy(category, "voucherNoun")}`} />
-      ) : (
-        <div className="size-[200px]" />
-      )}
+    // Big, on pure white, with a margin: it scans in the sun and through a cracked screen (board 04).
+    <figure className="flex flex-col items-center gap-2.5">
+      <div className="theme-light overflow-hidden rounded-md border border-line bg-surface">
+        {origin ? (
+          <QRCodeSVG value={url} size={216} level="M" marginSize={3} title={`Código de tu ${copy(category, "voucherNoun")}`} />
+        ) : (
+          <div className="size-[216px]" />
+        )}
+      </div>
       <figcaption className="text-center text-sm text-ink-2">
-        Muestra este código en la entrega ({formatQty(units, category)}).
+        Muéstralo al productor ({formatQty(units, category)}). Sube el brillo de tu pantalla.
         <br />
-        El productor lo escanea con la cámara para {copy(category, "deliveryVerb")}.
+        Lo escanea con la cámara para {copy(category, "deliveryVerb")}.
       </figcaption>
     </figure>
   );

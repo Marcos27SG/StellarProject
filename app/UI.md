@@ -115,15 +115,51 @@ Each campaign carries its own `dispute_window`, fixed when it was created. `next
 | Component | Purpose |
 |---|---|
 | `Logo`, `AyniMark` | The Ayni mark (two diamonds woven like a stitch, green over amber at the top, amber over green at the bottom) and the lowercase "ayni" wordmark, in token colors. The over-under gap is a mask, so the mark works on any surface. `MARK` exports the geometry for the puntada animation. `icon.svg` repeats it with fixed colors and a dark-mode media query |
-| `Money`, `Qty` | Prices as `$us 0,60` with `≈ Bs 7,20` as a reference (decimals per category), and pluralized quantities |
-| `StatusPill`, `TierBadge`, `Streak`, `Stars`, `ProducerLine` | Status and reputation, always icon + text |
-| `CampaignCard`, `FundingBar`, `Timeline` | Campaign summary pieces. A card shows six facts; the rest is on the campaign page |
+| `Puntada` | La puntada: the two diamonds come in from the sides and interlock (480 ms). Only on "Completado" (in `TxSteps`) and "Cobraste". Appears already interlocked with reduced motion |
+| `Money`, `Qty` | Prices as `$us 0,60` with `≈ Bs 7,20` as a reference (decimals per category), and pluralized quantities. `lg`/`xl` use the amount style (Archivo 110, 800, tabular) |
+| `StatusPill`, `VoucherPill` | Campaign and voucher states as tint + icon + word (see "Status labels" below) |
+| `TierBadge`, `TierCard`, `TierLadder` | Tiers as 0–4 filled amber diamonds + name, from `TIER_NAMES` / `TIER_LIMITS` (reputation.ts). Tier 0, Restringido, has no filled diamond and a warning icon and color. Tiles say what each tier allows |
+| `Streak`, `Stars`, `ProducerLine` | The streak as a woven row of diamonds (campaigns completed in a row; never red when it breaks); stars filled to the average; the trust line for a producer |
+| `CampaignCard`, `FundingBar`, `Timeline` | Campaign summary pieces. The funding bar has the dark tick at the minimum and four states: "Faltan N para el mínimo", "Mínimo logrado", "¡Completo!", "No llegó al mínimo · recuperas el 100%" (gray fill) |
 | `ProtectionExplainer` | "Cómo está protegido tu dinero" with the campaign's numbers; the refund order is behind a disclosure |
 | `BuyPanel` | The one primary action of a campaign: card on desktop, bottom bar on phones |
-| `MyVouchers`, `VoucherQR` | Voucher states, countdown, QR for pickup (always light) |
-| `ActionList`, `ActionDialog` | Renders `Action[]`: one primary with its consequence, the rest as secondary buttons that open the dialog. The dialog shows the amount that moves, a "No se puede deshacer" warning for `irreversible` actions, and the transaction status |
+| `VoucherTicket`, `voucherCode` | A voucher as a ticket: state, code, what, where, when, a perforation, then the money still in the contract and the next step. `voucherCode` derives `AYN-{campaign}-{last 4 of the buyer's address}` so both phones show the same code at the hand-off; it isn't stored anywhere |
+| `MyVouchers`, `VoucherQR` | Voucher states, countdown, QR for pickup (always on white, 216 px) |
+| `ActionList`, `ActionDialog` | Renders `Action[]`: one primary with its consequence, the rest as secondary buttons that open the dialog. Irreversible actions with no inputs open the alert dialog; the rest, the bottom sheet. The dialog shows the amount that moves, "No se puede deshacer" for `irreversible` actions, and the transaction status. Busy buttons say what is happening ("Firmando…") |
+| `Stepper` | Quantity: 52 px − and + around the number in the amount face, with the unit |
 | `ShareButton` | One button: the native share sheet, or a dialog with WhatsApp and copy link |
-| `ui.tsx` | `Notice`, `Hint` / `Term`, `Stat`, `ProgressBar`, `Field`, `MoneyStatus`, `TxSteps`, `Dialog`, `EmptyState`, `Skeleton`, `ExplorerLink` |
+| `Toast` (`ToastProvider`, `useToast`) | One short line after something happened, with at most one action. Success on the dark ink with the mark; error on the danger tint, saying first that the money is safe. At least 8 s, pauses on hover and focus, closable, never the only place information appears |
+| `OfflineNotice` | "Sin señal desde hace N min", under the header while the browser is offline. No offline promise: the app has no offline cache |
+| `icons.tsx` | Ayni's own icons (board 06): milk, eggs, basket, coffee, apartment, a crate for "Otros", and "Fondo común". `CategoryIcon` maps the catalog's icon names onto them; everything else is lucide |
+| `ui.tsx` | `Notice` (tones info, warning, danger, success, neutral, and `brand` for "your money is here"), `Tip` (dismissible, remembered per browser), `Hint` / `Term`, `Stat`, `ProgressBar`, `Field`, `AffixInput` ($us … ≈ Bs), `Pill`, `MoneyStatus`, `TxSteps`, `Dialog` (sheet or alert), `SummaryRow`, `MoneyBox`, `EmptyState`, `Skeleton`, `CampaignCardSkeleton`, `VoucherSkeleton`, `Spinner`, `ExplorerLink` ("Ver la prueba") |
+
+All of them are on `/dev/catalog` (development only), with sample data, above the category previews.
+
+### Buttons, fields, chips
+
+- `.btn` (primary), `.btn-secondary` (brand outline), `.btn-ghost` (brand text), `.btn-danger` (disputes and cancellations only). Default 44 px; `.btn-lg` 52 px for main actions; `.btn-sm` 36 px only with a mouse (`pointer: fine`), 44 on touch. The primary button says how much money moves ("Reservar · $us 9,00"). Disabled is a neutral fill, not a faded brand.
+- Fields are 52 px with a 1.5 px control border, the label always above, and the error saying how to fix it. Focus: brand border plus a soft halo. `.field-box` / `AffixInput` put "$us", "≈ Bs" or a unit inside the field.
+- `.chip`: icon + name, 44 px (the board's 40 is under the tap-target minimum); selected is a fill plus `aria-pressed`.
+
+### Status labels
+
+The board's set is Para recoger, Por confirmar, En curso, Pendiente, Completado, Falló, En disputa, Reembolsado. The app maps its states onto it, plus three of its own in the same style:
+
+| App state | Shown as |
+|---|---|
+| Voucher to pick up (Active, units held) | Para recoger · brand tint · QR |
+| Voucher in a pre-sale (Funding) | En curso · info · circular arrow |
+| Delivered, waiting for the buyer | Por confirmar · accent (you have to act) · pen |
+| Disputed | En disputa · warning · scale |
+| Received | Completado · success · check |
+| Refund ready to claim (Failed / Defaulted) | **Por cobrar** · accent · refund clock |
+| Refunded | Reembolsado · info · refund clock |
+| Campaign Funding | **En preventa** · neutral · hourglass |
+| Campaign Active | En entrega · info · circular arrow |
+| Campaign Completed | Completado · success |
+| Campaign Failed | No llegó al mínimo · info · refund clock |
+| Campaign Defaulted | **Incumplida** · danger · alert |
+| Transaction | Pendiente (warning, clock) · **Sin confirmar** (warning, question mark: a timeout, different from Pendiente) · Completado · Falló |
 
 ## Screens: rules
 
@@ -135,17 +171,18 @@ Each campaign carries its own `dispute_window`, fixed when it was created. `next
 
 ### Hint (tooltip)
 
-`Hint` opens on mouse hover, keyboard focus and tap; Esc, a tap outside, scroll or resize close it. The button is 24×24 px with an `aria-label` ("Qué es: Custodia"), and the text is linked with `aria-describedby`, so screen readers read it with the button. It positions itself inside the viewport. `Term` wraps a glossary word with a `Hint`.
+`Hint` opens on mouse hover, keyboard focus and tap; Esc, a tap outside, scroll or resize close it. The button shows a 24 px brand "i" with a 44 px tap area, has an `aria-label` ("Qué es: Custodia"), and the text is linked with `aria-describedby`, so screen readers read it with the button. It positions itself inside the viewport. `Term` wraps a glossary word with a `Hint`.
 
 ### Money movement
 
-`TxSteps` shows Preparando → Firmando → Confirmando en Stellar, then one of three `MoneyStatus` states:
+`TxSteps` shows three circles, Preparando → Firmando → Confirmando, with a status box under them that says what is happening ("Firmando con tu cuenta de Google…"). Then one of:
 
 | State | When | Shown as |
 |---|---|---|
-| Completado | Confirmed in a ledger | success icon + "Completado" and the explorer link |
-| Pendiente | The network accepted it but didn't confirm it within 45 s (`waitForTx`) | info clock + "Pendiente", "No la repitas" |
-| Falló | Rejected before or on the network | error icon + "Falló", the reason and "No se movió tu dinero" |
+| Completado | Confirmed in a ledger | success box with la puntada, "Completado.", what happened and "Ver la prueba" |
+| Pendiente | The network accepted it but didn't confirm it within 45 s (`waitForTx`) | warning clock on the third step, "Pendiente. La red está lenta: no la repitas." The app keeps checking while the page is open and the tab visible (`useAction`), and turns it into Completado or Falló by itself |
+| Sin confirmar | Pollar's submit timed out, so we don't know whether it went through | warning question mark, "No la repitas todavía", check the page in a minute. Re-checked like Pendiente when there is a hash |
+| Falló | Rejected before or on the network | the failed step gets an ✕; "Falló. No se movió tu dinero.", the reason, "Puedes intentarlo otra vez." |
 
 ## Color
 

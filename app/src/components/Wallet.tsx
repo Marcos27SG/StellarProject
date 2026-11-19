@@ -6,7 +6,7 @@
 
 import { PollarProvider, usePollar } from "@pollar/react";
 import { Copy, History, Loader2, LogOut, Wallet as WalletIcon } from "lucide-react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { config } from "@/lib/config";
 import { buildXdr, friendlyError, waitForTx } from "@/lib/despensa";
 import { formatMoney, parseUsd, shortAddress } from "@/lib/format";
@@ -212,16 +212,29 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 }
 
-/** Runs a contract call and exposes its phase for TxSteps. `onDone` runs once it is confirmed or pending. */
+/**
+ * Runs a contract call and exposes its phase for TxSteps. `onDone` runs once it is confirmed or pending,
+ * and again if a pending one is confirmed later.
+ *
+ * "Pendiente" and "Sin confirmar" with a hash keep being checked while this screen is open and the tab
+ * is visible, so they turn into "Completado" (or "Falló") by themselves; that is what the Pendiente
+ * message promises. `failedAt` is the step that was running when it failed, for the stepper.
+ */
 export function useAction() {
-  const { submit } = useWallet();
-  const [state, setState] = useState<{ phase: TxPhase; error?: string; hash?: string }>({ phase: "idle" });
+  const { submit, refreshBalance } = useWallet();
+  const [state, setState] = useState<{ phase: TxPhase; error?: string; hash?: string; failedAt?: TxPhase }>({ phase: "idle" });
+  const onDoneRef = useRef<(() => void) | undefined>(undefined);
 
   const run = useCallback(
     async (method: string, args: Record<string, unknown>, onDone?: () => void) => {
+      onDoneRef.current = onDone;
+      let last: TxPhase = "preparing";
       setState({ phase: "preparing" });
       try {
-        const r = await submit(method, args, (phase) => setState({ phase }));
+        const r = await submit(method, args, (phase) => {
+          last = phase;
+          setState({ phase });
+        });
         setState({ phase: r.settled ? "done" : "pending", hash: r.hash });
         onDone?.();
         return true;
@@ -232,12 +245,42 @@ export function useAction() {
           onDone?.();
           return false;
         }
-        setState({ phase: "error", error: friendlyError(e), hash: e instanceof TxFailedError ? e.hash : undefined });
+        setState({ phase: "error", error: friendlyError(e), hash: e instanceof TxFailedError ? e.hash : undefined, failedAt: last });
         return false;
       }
     },
     [submit],
   );
+
+  // Keep checking a pending transaction while the screen is open.
+  const { phase, hash } = state;
+  useEffect(() => {
+    if ((phase !== "pending" && phase !== "unconfirmed") || !hash) return;
+    let stop = false;
+    (async () => {
+      while (!stop) {
+        if (document.visibilityState === "visible") {
+          const s = await waitForTx(hash, 20_000);
+          if (stop) return;
+          if (s === "success") {
+            setState({ phase: "done", hash });
+            refreshBalance();
+            onDoneRef.current?.();
+            return;
+          }
+          if (s === "failed") {
+            setState({ phase: "error", error: "La red rechazó la operación.", hash, failedAt: "confirming" });
+            return;
+          }
+        }
+        await new Promise((r) => setTimeout(r, 5_000));
+      }
+    })();
+    return () => {
+      stop = true;
+    };
+  }, [phase, hash, refreshBalance]);
+
   const reset = useCallback(() => setState({ phase: "idle" }), []);
   const busy = state.phase === "preparing" || state.phase === "signing" || state.phase === "confirming";
   return { ...state, busy, run, reset };

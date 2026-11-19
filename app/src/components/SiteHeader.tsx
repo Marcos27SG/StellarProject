@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useBuyerAttention, useVerifierAllowed } from "@/lib/hooks";
 import { Logo } from "./Logo";
+import { OfflineNotice } from "./Offline";
 import { READ_ONLY_ID, READ_ONLY_REASON, WalletButton, useWallet } from "./Wallet";
 
 type NavItem = { href: string; label: string; match?: (p: string) => boolean };
@@ -80,13 +81,14 @@ export function SiteHeader() {
         )}
       </header>
       {!enabled && (
-        <div className="border-b border-line bg-surface-2 print:hidden">
-          <p id={READ_ONLY_ID} className="mx-auto flex max-w-6xl items-start gap-2 px-4 py-2.5 text-sm text-ink-2">
-            <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+        <div className="border-b border-line bg-info-soft print:hidden">
+          <p id={READ_ONLY_ID} className="mx-auto flex max-w-6xl items-start gap-2.5 px-4 py-2.5 text-ink">
+            <Info className="mt-0.5 size-5 shrink-0 text-info" aria-hidden />
             {READ_ONLY_REASON}
           </p>
         </div>
       )}
+      <OfflineNotice />
     </>
   );
 }

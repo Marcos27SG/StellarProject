@@ -7,6 +7,7 @@ import { CampaignCard } from "@/components/CampaignCard";
 import { Money, Qty } from "@/components/Money";
 import { ProtectionExplainer } from "@/components/ProtectionExplainer";
 import { Timeline } from "@/components/Timeline";
+import { DesignSystem } from "./DesignSystem";
 import { nextActions } from "@/lib/actions";
 import { TIER_LABEL, toAmount, type Campaign, type Holding } from "@/lib/despensa";
 import { formatPct } from "@/lib/format";
@@ -93,7 +94,8 @@ export default function CatalogPreview() {
 
   return (
     <div className="space-y-10">
-      <header className="max-w-3xl space-y-2">
+      {now !== null && <DesignSystem now={now} />}
+      <header className="max-w-3xl space-y-2 border-t border-line pt-10">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-3">Solo en desarrollo</p>
         <h1 className="font-display text-3xl font-semibold">Catálogo de categorías</h1>
         <p className="text-ink-2">
