@@ -106,22 +106,27 @@ function EmptyDrawing() {
   );
 }
 
-/** Nothing here yet: says why, and invites the next step. `icon` replaces the drawing for errors. */
+/**
+ * Nothing here yet: says why, and invites the next step. `icon` replaces the drawing for errors.
+ * `level={1}` when the empty state is the whole page (signed out, bad link), so the page keeps an h1.
+ */
 export function EmptyState({
   icon,
   title,
   children,
   action,
+  level = 2,
 }: {
   icon?: ReactNode;
   title: string;
+  level?: 1 | 2;
   children?: ReactNode;
   action?: { href: string; label: string };
 }) {
   return (
     <div className="card flex flex-col items-center gap-3 px-5 py-7 text-center shadow-none">
       {icon ? <div className="text-brand [&>svg]:size-10">{icon}</div> : <EmptyDrawing />}
-      <h2 className="t-title-2">{title}</h2>
+      {level === 1 ? <h1 className="t-title-2">{title}</h1> : <h2 className="t-title-2">{title}</h2>}
       {children && <div className="max-w-md text-ink-2">{children}</div>}
       {action && (
         <Link href={action.href} className="btn mt-1">

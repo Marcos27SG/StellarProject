@@ -20,7 +20,7 @@ export default function Poster({ id }: { id: string }) {
   const [origin, setOrigin] = useState("");
   useEffect(() => setOrigin(window.location.origin), []);
 
-  if (!valid || item.error) return <EmptyState title="No encontramos esta preventa" action={{ href: "/", label: "Ver preventas" }} />;
+  if (!valid || item.error) return <EmptyState level={1} title="No encontramos esta preventa" action={{ href: "/", label: "Ver preventas" }} />;
   if (!item.data) return <Skeleton className="mx-auto h-[640px] max-w-3xl rounded-lg" />;
 
   const { c, meta, category } = item.data;

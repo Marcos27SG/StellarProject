@@ -13,7 +13,7 @@ import { Money } from "@/components/Money";
 import { VoucherQR } from "@/components/MyVouchers";
 import { Dialog, EmptyState, Notice, Term, VoucherSkeleton } from "@/components/ui";
 import { voucherCode, VoucherTicket } from "@/components/VoucherTicket";
-import { useWallet } from "@/components/Wallet";
+import { readOnlyProps, useWallet } from "@/components/Wallet";
 import { nextActions, type Action, type ActionId } from "@/lib/actions";
 import type { Campaign, Holding } from "@/lib/despensa";
 import { formatDate, formatDuration, formatQty } from "@/lib/format";
@@ -77,13 +77,12 @@ export default function MyVouchersPage() {
 
   if (!address) {
     return (
-      <EmptyState title="Tus vales aparecen aquí">
+      <EmptyState level={1} title="Tus vales aparecen aquí">
         <p className="mb-2">Entra para ver lo que reservaste, mostrar el QR en la entrega y confirmar lo que recibes.</p>
-        {enabled && (
-          <button className="btn btn-lg" onClick={connect}>
-            Entrar con Google
-          </button>
-        )}
+        {/* Read-only: the button stays, disabled, and points to the banner (as on /producer). */}
+        <button className="btn btn-lg" onClick={connect} {...readOnlyProps(enabled)}>
+          Entrar con Google
+        </button>
       </EmptyState>
     );
   }

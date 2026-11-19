@@ -19,7 +19,7 @@ export default function ProducerProfile({ address }: { address: string }) {
   const now = useNow();
 
   if (!valid) {
-    return <EmptyState title="Dirección no válida" action={{ href: "/", label: "Ver preventas" }} />;
+    return <EmptyState level={1} title="Dirección no válida" action={{ href: "/", label: "Ver preventas" }} />;
   }
 
   const mine = (list.data ?? []).filter((i) => i.c.seller === address).sort((a, b) => Number(b.c.created_at - a.c.created_at));

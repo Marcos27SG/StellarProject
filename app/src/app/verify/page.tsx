@@ -22,7 +22,7 @@ export default function VerifyPage() {
 
   if (!address) {
     return (
-      <EmptyState icon={<Scale className="size-10" />} title="Panel del verificador">
+      <EmptyState level={1} icon={<Scale className="size-10" />} title="Panel del verificador">
         <p className="mb-4">
           Si una asociación, cooperativa o ingeniero te eligió como <Term k="verificador">verificador</Term>, aquí revisas la evidencia de los
           hitos y decides las disputas. Nunca puedes quedarte con el dinero: solo decides si va al productor o vuelve al comprador.

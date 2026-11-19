@@ -43,12 +43,12 @@ function Deliver() {
 
   if (!ok) {
     return (
-      <EmptyState icon={<QrCode className="size-10" />} title="Este código QR no es válido" action={{ href: "/producer", label: "Ir a mi panel" }}>
+      <EmptyState level={1} icon={<QrCode className="size-10" />} title="Este código QR no es válido" action={{ href: "/producer", label: "Ir a mi panel" }}>
         Pide al comprador que vuelva a abrir su vale en Ayni y escanea el código otra vez.
       </EmptyState>
     );
   }
-  if (item.error) return <EmptyState title="No encontramos la preventa">{item.error}</EmptyState>;
+  if (item.error) return <EmptyState level={1} title="No encontramos la preventa">{item.error}</EmptyState>;
   if (!item.data || !holding.data) {
     return (
       <div className="mx-auto max-w-md space-y-4" aria-busy aria-label="Cargando la entrega">

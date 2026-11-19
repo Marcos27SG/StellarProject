@@ -119,7 +119,7 @@ export default function TransparencyPage() {
         {list.data ? <SplitBar value={value} total={sold} /> : <Skeleton className="h-7 w-full" />}
       </section>
 
-      <section aria-labelledby="campaigns" className="grid gap-12 lg:grid-cols-2">
+      <section aria-labelledby="campaigns" className="grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-2">
         <div className="space-y-4">
           <h2 id="campaigns" className="h-section">
             Campañas por estado
@@ -149,7 +149,7 @@ export default function TransparencyPage() {
               las preventas nuevas. Cada preventa conserva el plazo con el que se creó: nadie puede acortarlo después.
             </li>
             <li>Verificadores: solo instituciones autorizadas pueden verificar una preventa. El productor no puede nombrar a un conocido.</li>
-            <li>Todo o nada: si una preventa no llega a su meta, cada comprador recupera el 100%.</li>
+            <li>Todo o nada: si una preventa no llega al mínimo, cada comprador recupera el 100%.</li>
             <li>
               Si un productor no cumple: reembolso desde la custodia, luego su aval y luego el fondo común, que aporta como máximo el{" "}
               <b className="text-ink">{cfg.data ? formatPct(cfg.data.pool_cap_bps) : "…"}</b> de su saldo por caso.
