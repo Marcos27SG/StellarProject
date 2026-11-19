@@ -4,7 +4,7 @@ import { Archivo, Atkinson_Hyperlegible } from "next/font/google";
 import "@pollar/react/styles.css";
 import "./globals.css";
 import { AyniMark } from "@/components/Logo";
-import { SiteHeader } from "@/components/SiteHeader";
+import { BottomTabs, SiteHeader } from "@/components/SiteHeader";
 import { ToastProvider } from "@/components/Toast";
 import { Providers } from "@/components/Wallet";
 
@@ -45,7 +45,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <ToastProvider>
           <SiteHeader />
           <main className="mx-auto max-w-6xl px-4 py-8 sm:py-10 print:max-w-none print:p-0">{children}</main>
-          <footer className="mx-auto mt-8 max-w-6xl border-t border-line px-4 pt-6 pb-28 text-sm text-ink-2 lg:pb-10 print:hidden">
+          <footer className="t-detail mx-auto mt-8 max-w-6xl border-t border-line px-4 pt-6 pb-32 text-ink-2 lg:pb-10 print:hidden">
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
               <p className="flex items-center gap-2">
                 <AyniMark className="size-6" />
@@ -62,6 +62,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </p>
             <p className="mt-1">Stellar testnet · Hackathon Stellar Bolivia 2026 · Los montos son de prueba.</p>
           </footer>
+          <BottomTabs />
           </ToastProvider>
         </Providers>
       </body>

@@ -463,7 +463,7 @@ export function Field({
 }
 
 /** An input with a fixed prefix ("$us") and/or suffix ("≈ Bs 10,80", "litros") inside the field. */
-export function AffixInput({ prefix, suffix, className = "", ...input }: { prefix?: ReactNode; suffix?: ReactNode } & InputHTMLAttributes<HTMLInputElement>) {
+export function AffixInput({ prefix, suffix, className = "", ...input }: { prefix?: ReactNode; suffix?: ReactNode } & Omit<InputHTMLAttributes<HTMLInputElement>, "prefix">) {
   return (
     <span className={`field-box ${className}`}>
       {prefix && <span className="shrink-0 font-bold text-ink-2">{prefix}</span>}
