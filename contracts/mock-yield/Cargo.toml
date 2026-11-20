@@ -1,0 +1,16 @@
+[package]
+name = "mock-yield"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Test-only lending pool with the subset of Blend v2's pool interface Ayni uses (submit supply/withdraw, get_positions, get_reserve), at a fixed rate."
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

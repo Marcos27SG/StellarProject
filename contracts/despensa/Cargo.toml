@@ -3,7 +3,7 @@ name = "despensa"
 version = "0.1.0"
 edition = "2021"
 publish = false
-description = "Pre-sale escrow for local products: vouchers, milestone advances, seller bonds, guarantee pool and on-chain reputation."
+description = "Pre-sale escrow for local products: vouchers, verified-seller advances backed by bonds, yield on idle escrow and on-chain reputation."
 
 [lib]
 crate-type = ["lib", "cdylib"]
@@ -14,3 +14,4 @@ soroban-sdk = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
+mock-yield = { path = "../mock-yield" }

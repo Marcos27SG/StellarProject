@@ -1,6 +1,6 @@
 use soroban_sdk::{contractevent, Address};
 
-use crate::types::Status;
+use crate::types::{Status, YieldKind};
 
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -125,4 +125,44 @@ pub struct Rated {
     pub seller: Address,
     pub id: u64,
     pub stars: u32,
+}
+
+/// Yield paid out with a payout: to the buyer, the seller, a bond provider or Ayni's treasury.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct YieldPaid {
+    #[topic]
+    pub id: u64,
+    #[topic]
+    pub to: Address,
+    pub amount: i128,
+    pub kind: YieldKind,
+}
+
+/// A payout was smaller than its principal because the lending pool lost money.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct YieldLoss {
+    #[topic]
+    pub id: u64,
+    pub amount: i128,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct YieldConfigChanged {
+    pub enabled: bool,
+    pub liquid_bps: u32,
+    pub buyer_yield_bps: u32,
+    pub protocol_yield_bps: u32,
+}
+
+/// Money moved between the contract and the lending pool (positive: supplied, negative:
+/// withdrawn). For the transparency page.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Rebalanced {
+    pub moved: i128,
+    pub idle: i128,
+    pub invested: i128,
 }

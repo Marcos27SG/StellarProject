@@ -41,7 +41,10 @@ fn setup<'a>() -> Setup<'a> {
     let token = TokenClient::new(&env, &token_addr);
     let sac = StellarAssetClient::new(&env, &token_addr);
 
-    let contract_id = env.register(Despensa, (admin.clone(), token_addr, treasury.clone(), WINDOW));
+    let contract_id = env.register(
+        Despensa,
+        (admin.clone(), token_addr, treasury.clone(), WINDOW, None::<Address>),
+    );
     let client = DespensaClient::new(&env, &contract_id);
     client.set_verifier(&verifier, &true);
     // Most tests use advances, so the default seller passed the off-chain identity check.
