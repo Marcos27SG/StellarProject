@@ -306,13 +306,13 @@ function buyerActions(c: Campaign, h: Holding | null, ctx: ActionContext): Actio
       break;
     }
     case "Failed": {
-      if (outstanding > 0) out.push(refundAction(role, "Recuperas el 100% de lo que pagaste."));
+      if (outstanding > 0) out.push(refundAction(role, "Recuperas el 100% de lo que pagaste, más lo que ganó mientras esperaba."));
       break;
     }
     case "Defaulted": {
       if (outstanding > 0) {
         out.push(
-          refundAction(role, "Se te devuelve desde la custodia, luego el aval y luego el fondo común."),
+          refundAction(role, "Se te devuelve desde tu pago en custodia y luego el aval del productor, que cubre todo adelanto. Más lo que ganó mientras esperaba."),
         );
       }
       if (h && (h.delivered > 0 || h.refunded > 0) && !h.rated) out.push(rateAction(role));

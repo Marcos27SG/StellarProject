@@ -13,6 +13,7 @@ import { VoucherPill, type VoucherState } from "./badges";
 import { Money } from "./Money";
 import { Notice, Term } from "./ui";
 import { voucherCode } from "./VoucherTicket";
+import { YieldEarned } from "./YieldEarned";
 
 /** The connected buyer's vouchers in this campaign: what they hold, the QR for pickup, the next step. */
 export function MyVouchers({
@@ -79,7 +80,8 @@ export function MyVouchers({
 
       {(tag === "Failed" || tag === "Defaulted") && h.units + h.pending > 0 && (
         <p className="text-ink-2">
-          Te corresponden <Money amount={c.refund_per_unit * BigInt(h.units + h.pending)} category={category} size="sm" /> de reembolso.
+          Te corresponden <Money amount={c.refund_per_unit * BigInt(h.units + h.pending)} category={category} size="sm" /> de reembolso, más lo que
+          ganó tu pago.
         </p>
       )}
 
@@ -109,6 +111,8 @@ export function MyVouchers({
           </span>
         </p>
       )}
+
+      <YieldEarned c={c} h={h} buyer={buyer} category={category} />
 
       <ActionList actions={list} c={c} category={category} onLocal={(a) => a.id === "show_qr" && setShowQr(true)} />
     </section>

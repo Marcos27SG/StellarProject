@@ -57,3 +57,15 @@ describe("readinessOf", () => {
     expect(readinessOf({ provisioning: "NONE", existsOnStellar: false })).toBe("preparing");
   });
 });
+
+describe("model v2 contract errors", () => {
+  it("explains a lending pool that cannot pay right now, without jargon", () => {
+    const msg = walletErrorMessage({ code: "TX_SUBMIT_FAILED", details: "HostError: Error(Contract, #24)" });
+    expect(msg).toBe("Sin liquidez por ahora, intenta en unos minutos. No se movió tu dinero.");
+    expect(msg).not.toMatch(/blend|pool|token/i);
+  });
+
+  it("explains that advances need a verified identity", () => {
+    expect(walletErrorMessage({ message: "Error(Contract, #23)" })).toMatch(/verificar tu identidad/);
+  });
+});

@@ -4,13 +4,16 @@ import type { Reputation, TierInfo } from "./despensa";
 
 export const TIER_NAMES = ["Restringido", "Nuevo", "Confiable", "Destacado", "Ejemplar"] as const;
 
-/** max_advance_bps and bond_cover_bps per tier (contract table). */
+/**
+ * max_advance_bps and bond_cover_bps per tier (contract table). Reputation only raises the advance
+ * ceiling: the aval always covers 100% of what is advanced.
+ */
 export const TIER_LIMITS: Record<number, { maxAdvanceBps: number; bondCoverBps: number }> = {
   0: { maxAdvanceBps: 0, bondCoverBps: 10_000 },
   1: { maxAdvanceBps: 2_000, bondCoverBps: 10_000 },
-  2: { maxAdvanceBps: 3_000, bondCoverBps: 5_000 },
-  3: { maxAdvanceBps: 4_000, bondCoverBps: 2_500 },
-  4: { maxAdvanceBps: 5_000, bondCoverBps: 1_000 },
+  2: { maxAdvanceBps: 3_000, bondCoverBps: 10_000 },
+  3: { maxAdvanceBps: 4_000, bondCoverBps: 10_000 },
+  4: { maxAdvanceBps: 5_000, bondCoverBps: 10_000 },
 };
 
 /**

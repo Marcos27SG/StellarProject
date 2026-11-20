@@ -5,7 +5,7 @@ import type { CategoryDef } from "@/catalog";
 import type { Campaign } from "@/lib/despensa";
 import { decimalsFor, formatBs, formatDate, formatDuration, safeHref, shortAddress } from "@/lib/format";
 import type { ProducerStats } from "@/lib/hooks";
-import { StatusPill, TierBadge } from "./badges";
+import { StatusPill, TierBadge, VerifiedBadge } from "./badges";
 import { CategoryTile } from "./CategoryIcon";
 import { FundingBar } from "./FundingBar";
 import { Money } from "./Money";
@@ -30,7 +30,7 @@ export function timeHint(c: Campaign, now: bigint): string {
 /**
  * The protection line at the foot of a card (board 04). It has to be true for this campaign: a full
  * refund is guaranteed only while the minimum isn't reached; after that the buyer is protected by
- * pay-on-delivery, and refunds after advances come from escrow, bond and pool (ProtectionExplainer).
+ * pay-on-delivery, and refunds after advances come from escrow, then the bond (ProtectionExplainer).
  */
 function protectionLine(c: Campaign): string | null {
   switch (c.status.tag) {
@@ -88,11 +88,14 @@ export function CampaignCard({
           {!live && <StatusPill c={c} />}
           <h3 className="text-[1.0625rem] leading-tight font-bold text-ink group-hover:underline group-hover:underline-offset-2">{c.title}</h3>
           <p className="text-sm text-ink-2">{who}</p>
-          {producer ? (
-            <TierBadge tier={producer.tier.tier} />
-          ) : producer === null ? (
-            <span className="h-4 w-24 animate-pulse rounded-full bg-surface-2" aria-hidden />
-          ) : null}
+          <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <VerifiedBadge seller={c.seller} />
+            {producer ? (
+              <TierBadge tier={producer.tier.tier} />
+            ) : producer === null ? (
+              <span className="h-4 w-24 animate-pulse rounded-full bg-surface-2" aria-hidden />
+            ) : null}
+          </span>
         </div>
       </div>
 

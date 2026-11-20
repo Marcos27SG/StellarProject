@@ -1,4 +1,4 @@
-// Typed access to the Pacta Soroban contract (crate and file keep the original name, despensa).
+// Typed access to the Ayni Soroban contract (crate and file keep the original name, despensa).
 // Uses the JS Stellar SDK's contract client with the contract interface bundled in
 // contract-spec.ts, so no generated bindings package and no interface download are needed.
 
@@ -42,8 +42,22 @@ export interface Campaign {
   escrow: bigint;
   bond_total: bigint;
   bond_slashed: bigint;
+  /** Principal returned per unit after a failure or default (yield comes on top). */
   refund_per_unit: bigint;
   created_at: bigint;
+  /** Internal shares of the yield pot backing `escrow`; their value minus `escrow` is the yield. */
+  escrow_shares: bigint;
+  bond_shares: bigint;
+  bond_shares_posted: bigint;
+  /** Bond principal still in the contract (posted - slashed - withdrawn). */
+  bond_left: bigint;
+  /** Share of a delivered unit's yield for the buyer and for Ayni, fixed at creation. */
+  buyer_yield_bps: number;
+  protocol_yield_bps: number;
+  /** Yield paid out so far in this campaign, to anyone. */
+  yield_paid: bigint;
+  /** What the lending pool lost on this campaign's payouts (0 unless it had bad debt). */
+  yield_loss: bigint;
 }
 
 export interface Holding {
@@ -54,6 +68,8 @@ export interface Holding {
   delivered: number;
   refunded: number;
   rated: boolean;
+  /** Yield this buyer has been paid so far in this campaign. */
+  yield_paid: bigint;
 }
 
 export interface Reputation {
@@ -83,13 +99,34 @@ export interface BuyerStats {
 export interface ContractConfig {
   admin: string;
   token: string;
-  fee_bps: number;
+  /** Receives Ayni's share of the yield (0 by default). There is no fee on payments. */
+  treasury: string;
   /** Window new campaigns get. A live campaign uses its own `dispute_window`. */
   dispute_window: bigint;
-  pool: bigint;
-  /** Max share of the pool one default may use. */
-  pool_cap_bps: number;
   campaigns: bigint;
+}
+
+/** Where the money waits and what it has earned (lending pool fixed at deploy). */
+export interface YieldConfig {
+  pool: string | undefined;
+  enabled: boolean;
+  /** Share of everything kept idle in the contract. */
+  liquid_bps: number;
+  buyer_yield_bps: number;
+  protocol_yield_bps: number;
+  idle: bigint;
+  /** Current value of the lending-pool position. */
+  invested: bigint;
+  total_shares: bigint;
+  yield_paid: bigint;
+  yield_loss: bigint;
+}
+
+export interface CampaignValue {
+  escrow: bigint;
+  escrow_value: bigint;
+  bond: bigint;
+  bond_value: bigint;
 }
 
 export interface MilestoneInput {
@@ -124,7 +161,7 @@ const ERRORS: Record<number, [string, string]> = {
   11: ["NothingToClaim", "No hay nada que reclamar."],
   12: ["MissingEvidence", "Falta la evidencia del hito."],
   13: ["AlreadyReleased", "Este hito ya fue pagado."],
-  14: ["FeeTooHigh", "Comisión demasiado alta."],
+  14: ["FeeTooHigh", "Comisión demasiado alta."], // reserved: there is no fee since model v2
   15: ["SelfDealing", "El productor o el verificador no pueden comprar ni recibir sus propios vales."],
   16: ["DisputeOpen", "Hay una disputa abierta."],
   17: ["NoDispute", "No hay una disputa abierta."],
@@ -133,6 +170,8 @@ const ERRORS: Record<number, [string, string]> = {
   20: ["WindowOutOfRange", "El plazo de disputa debe estar entre 1 y 30 días."],
   21: ["TooLong", "El texto es demasiado largo. Acórtalo e inténtalo de nuevo."],
   22: ["NoPendingAdmin", "No hay un cambio de administrador pendiente."],
+  23: ["NotVerified", "Para pedir adelantos primero tienes que verificar tu identidad."],
+  24: ["YieldUnavailable", "Sin liquidez por ahora, intenta en unos minutos. No se movió tu dinero."],
 };
 
 export function friendlyError(err: unknown): string {
@@ -244,6 +283,12 @@ export const getBuyerStats = (buyer: string) => read<BuyerStats>("buyer_stats", 
 export const getBond = (id: bigint, provider: string) => read<bigint>("bond_of", { id, provider });
 /** Is this address on the contract's verifier allowlist? Sellers can only appoint allowlisted verifiers. */
 export const isVerifier = (verifier: string) => read<boolean>("is_verifier", { verifier });
+/** Did a verifier check this seller's identity (off-chain)? Only verified sellers can ask for advances. */
+export const isSellerVerified = (seller: string) => read<boolean>("is_seller_verified", { seller });
+export const getYieldConfig = () => read<YieldConfig>("yield_config");
+export const getCampaignValue = (id: bigint) => read<CampaignValue>("campaign_value", { id });
+/** The buyer's share of the yield their vouchers have earned so far (not yet paid). */
+export const getHoldingYield = (id: bigint, buyer: string) => read<bigint>("holding_yield", { id, buyer });
 
 export async function listCampaigns(): Promise<Campaign[]> {
   const cfg = await getConfig();

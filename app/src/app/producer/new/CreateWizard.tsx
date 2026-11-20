@@ -17,7 +17,7 @@ import { AffixInput, Field, Notice, ProgressBar, Term, TxSteps } from "@/compone
 import { readOnlyProps, useAction, useWallet } from "@/components/Wallet";
 import { friendlyError, getCampaign, getConfig, isValidAddress, type TierInfo } from "@/lib/despensa";
 import { formatBs, formatDate, formatPct, formatQty, parseUsd, shortAddress } from "@/lib/format";
-import { invalidate, useContractConfig, useNow, useProducer, useVerifierAllowed, type ProducerStats } from "@/lib/hooks";
+import { invalidate, useNow, useProducer, useSellerVerified, useVerifierAllowed, type ProducerStats } from "@/lib/hooks";
 import { INLINE_SOFT_LIMIT, metadataStore } from "@/lib/metadata";
 import { TIER_NAMES } from "@/lib/reputation";
 import { verifiersFor } from "@/lib/verifiers";
@@ -65,12 +65,18 @@ function saveDraft(value: { draft: CampaignDraft; step: WizardStep } | null) {
 export default function CreateWizard() {
   const { address, enabled, connect } = useWallet();
   const producer = useProducer(address);
-  const cfg = useContractConfig();
+  const verifiedQ = useSellerVerified(address);
+  const verified = verifiedQ.data === true;
   const now = useNow();
   const tier = producer.data?.tier ?? NEW_PRODUCER_TIER;
-  const feeBps = cfg.data?.fee_bps ?? 200;
 
-  const [draft, setDraft] = useState<CampaignDraft | null>(null);
+  const [rawDraft, setDraft] = useState<CampaignDraft | null>(null);
+  // Only identity-verified sellers can ask for advances (the contract answers NotVerified). For the
+  // others every milestone is off: the campaign is pay-on-delivery only.
+  const draft = useMemo(
+    () => (rawDraft && !verified ? { ...rawDraft, milestones: rawDraft.milestones.map((m) => ({ ...m, enabled: false })) } : rawDraft),
+    [rawDraft, verified],
+  );
   const [step, setStep] = useState<WizardStep>(0);
   const [showErrors, setShowErrors] = useState(false);
   const [restored, setRestored] = useState(false);
@@ -88,8 +94,8 @@ export default function CreateWizard() {
   }, []);
 
   useEffect(() => {
-    if (draft && created === null) saveDraft({ draft, step });
-  }, [draft, step, created]);
+    if (rawDraft && created === null) saveDraft({ draft: rawDraft, step });
+  }, [rawDraft, step, created]);
 
   // The contract only accepts allowlisted verifiers: ask it before the producer reaches "Crear".
   const chosenVerifier = draft?.verifier.trim() ?? "";
@@ -192,10 +198,10 @@ export default function CreateWizard() {
           {draft && category && step === 1 && <StepDetails d={draft} category={category} update={update} errors={showErrors ? errors : {}} />}
           {draft && category && step === 2 && <StepPrice d={draft} category={category} update={update} errors={showErrors ? errors : {}} />}
           {draft && category && step === 3 && (
-            <StepMilestones d={draft} category={category} tier={tier} feeBps={feeBps} update={update} errors={showErrors ? errors : {}} />
+            <StepMilestones d={draft} category={category} tier={tier} verified={verified} signedIn={!!address} update={update} errors={showErrors ? errors : {}} />
           )}
           {draft && category && step === 4 && (
-            <StepReview d={draft} category={category} tier={tier} feeBps={feeBps} update={update} errors={showErrors ? errors : {}} me={address} />
+            <StepReview d={draft} category={category} tier={tier} update={update} errors={showErrors ? errors : {}} me={address} />
           )}
 
           {step > 0 && (
@@ -527,9 +533,17 @@ function StepPrice({ d, category, update, errors }: StepProps) {
 
 // ------------------------------------------------------------------ step 3: milestones
 
-function StepMilestones({ d, category, tier, feeBps, update, errors }: StepProps & { tier: TierInfo; feeBps: number }) {
+function StepMilestones({
+  d,
+  category,
+  tier,
+  verified,
+  signedIn,
+  update,
+  errors,
+}: StepProps & { tier: TierInfo; verified: boolean; signedIn: boolean }) {
   const used = advanceBps(d);
-  const flow = moneyFlow(d, tier.bond_cover_bps, feeBps);
+  const flow = moneyFlow(d, tier.bond_cover_bps);
   const setM = (i: number, patch: Partial<CampaignDraft["milestones"][number]>) =>
     update({ milestones: d.milestones.map((m, j) => (j === i ? { ...m, ...patch } : m)) });
   const anyOn = d.milestones.some((m) => m.enabled);
@@ -542,23 +556,41 @@ function StepMilestones({ d, category, tier, feeBps, update, errors }: StepProps
         <>
           Puedes recibir parte del dinero antes de entregar, para comprar insumos. Cada adelanto se paga cuando el{" "}
           <Term k="verificador">verificador</Term> aprueba la evidencia de un <Term k="hito">hito</Term>, y necesita un{" "}
-          <Term k="aval">aval</Term>.
+          <Term k="aval">aval</Term> que cubra todo lo adelantado.
         </>
       }
     >
+      {!verified && (
+        <Notice
+          tone="info"
+          title="Verifica tu identidad para pedir adelantos"
+          action={
+            signedIn ? (
+              <Link href="/producer#verificar" className="btn-secondary">
+                Cómo verificarme
+              </Link>
+            ) : undefined
+          }
+        >
+          Solo los productores <Term k="verificado">verificados</Term> pueden recibir dinero antes de entregar. Mientras tanto puedes publicar
+          esta preventa con pago contra entrega: cobras todo cuando tus compradores reciben.
+          {!signedIn && " Entra con Google para ver si ya estás verificado."}
+        </Notice>
+      )}
+
       <div className="rounded-md bg-surface-2 p-4 text-sm text-ink-2 [&_b]:text-ink">
         Tu nivel <b>{TIER_NAMES[tier.tier]}</b>{" "}
         {tier.max_advance_bps > 0 ? (
           <>
-            permite hasta <b>{formatPct(tier.max_advance_bps)}</b> de adelanto en total, respaldado por un aval del{" "}
-            <b>{formatPct(tier.bond_cover_bps)}</b> de lo adelantado. Cumple entregas para subir de nivel.
+            permite hasta <b>{formatPct(tier.max_advance_bps)}</b> de adelanto en total. El aval siempre cubre el{" "}
+            <b>{formatPct(tier.bond_cover_bps)}</b> de lo adelantado; cumplir entregas sube tu límite.
           </>
         ) : (
           <>no permite adelantos por ahora: vendes con pago contra entrega hasta recuperar tu reputación.</>
         )}
       </div>
 
-      {tier.max_advance_bps > 0 && (
+      {tier.max_advance_bps > 0 && verified && (
         <>
           <div>
             <div className="mb-1.5 flex justify-between text-sm text-ink-2">
@@ -630,9 +662,9 @@ function StepMilestones({ d, category, tier, feeBps, update, errors }: StepProps
 
       {anyOn && used > 0 && !over && (
         <p className="text-ink-2">
-          Si vendes todo, recibirías <Money amount={flow.advanceNet} category={category} size="sm" /> por adelantado. Antes de que se apruebe,
+          Si vendes todo, recibirías <Money amount={flow.advance} category={category} size="sm" /> por adelantado. Antes de que se apruebe,
           tú o alguien que te respalde debe dejar un aval de <Money amount={flow.bondNeeded} category={category} size="sm" />. Si cumples, el
-          aval se devuelve entero.
+          aval se devuelve entero, con lo que ganó mientras esperaba.
         </p>
       )}
       {!anyOn && <p className="text-ink-2">Sin hitos: cobras todo al entregar. Es la opción más simple y no necesita aval.</p>}
@@ -642,12 +674,12 @@ function StepMilestones({ d, category, tier, feeBps, update, errors }: StepProps
 
 // ------------------------------------------------------------------ step 4: verifier and review
 
-function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps & { tier: TierInfo; feeBps: number; me: string | null }) {
+function StepReview({ d, category, tier, update, errors, me }: StepProps & { tier: TierInfo; me: string | null }) {
   const known = verifiersFor(d.categoryId, me);
   const pickedKnown = known.some((v) => v.address === d.verifier);
   const [other, setOther] = useState(() => !!d.verifier && !pickedKnown);
   const showInput = known.length === 0 || other;
-  const flow = moneyFlow(d, tier.bond_cover_bps, feeBps);
+  const flow = moneyFlow(d, tier.bond_cover_bps);
   const size = inlineEstimate(d);
   const sale = daySeconds(d.saleEnd);
   const deadline = daySeconds(d.deadline);
@@ -748,25 +780,23 @@ function StepReview({ d, category, tier, feeBps, update, errors, me }: StepProps
           </li>
           {flow.advance > BigInt(0) && (
             <li className="flex flex-wrap justify-between gap-2">
-              <span>Adelanto por hitos (con aval de {formatPct(tier.bond_cover_bps)})</span>
-              <Money amount={flow.advanceNet} category={category} size="sm" />
+              <span>Adelanto por hitos (con aval del {formatPct(tier.bond_cover_bps)})</span>
+              <Money amount={flow.advance} category={category} size="sm" />
             </li>
           )}
           <li className="flex flex-wrap justify-between gap-2">
             <span>Al entregar, a medida que tus compradores confirman</span>
-            <Money amount={flow.onDeliveryNet} category={category} size="sm" />
-          </li>
-          <li className="flex flex-wrap justify-between gap-2 text-ink-2">
-            <span>
-              {formatPct(feeBps)} para el <Term k="fondo">fondo común</Term>
-            </span>
-            <Money amount={flow.fee} category={category} size="sm" showBs={false} />
+            <Money amount={flow.onDelivery} category={category} size="sm" />
           </li>
           <li className="flex flex-wrap justify-between gap-2 border-t border-line pt-2 font-semibold">
-            <span>Recibes en total</span>
-            <Money amount={flow.totalNet} category={category} />
+            <span>Recibes en total, sin comisión</span>
+            <Money amount={flow.total} category={category} />
           </li>
         </ol>
+        <p className="text-ink-2">
+          Además, mientras el dinero espera gana <Term k="rendimiento">rendimiento</Term>: al entregar te llevas tu parte. No te prometemos una
+          cifra; la ves cuando cobras.
+        </p>
         <p className="text-ink-2">
           Si no llegas al mínimo de {formatQty(Number(d.minUnits), category)}, todos recuperan su dinero y tu reputación no cambia.
         </p>

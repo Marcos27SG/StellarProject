@@ -2,7 +2,7 @@
 
 // Transparency: everything here is read live from the contract. Built for judges and skeptical buyers.
 
-import { ExternalLink } from "lucide-react";
+import { ChevronDown, ExternalLink } from "lucide-react";
 import type { CSSProperties } from "react";
 import { StatusPill, TierBadge } from "@/components/badges";
 import { Money } from "@/components/Money";
@@ -10,7 +10,7 @@ import { ExplorerLink, Notice, Skeleton, Stat, Term } from "@/components/ui";
 import { config } from "@/lib/config";
 import type { StatusTag } from "@/lib/despensa";
 import { formatBs, formatDuration, formatMoney, formatNumber, formatPct, shortAddress } from "@/lib/format";
-import { useCampaignList, useContractConfig } from "@/lib/hooks";
+import { useCampaignList, useContractConfig, useYieldConfig } from "@/lib/hooks";
 import { TIER_LIMITS } from "@/lib/reputation";
 
 const STATUSES: StatusTag[] = ["Funding", "Active", "Completed", "Failed", "Defaulted"];
@@ -27,7 +27,9 @@ const SEGMENTS: { key: SegmentKey; label: string }[] = [
 export default function TransparencyPage() {
   const list = useCampaignList();
   const cfg = useContractConfig();
+  const yc = useYieldConfig();
   const items = list.data ?? [];
+  const testYield = config.network === "testnet";
 
   const zero = BigInt(0);
   let escrow = zero;
@@ -66,7 +68,7 @@ export default function TransparencyPage() {
         </p>
       </header>
 
-      {(list.error || cfg.error) && (
+      {(list.error || cfg.error || yc.error) && (
         <Notice
           tone="danger"
           title="No se pudo leer la red de Stellar"
@@ -76,13 +78,14 @@ export default function TransparencyPage() {
               onClick={() => {
                 list.refresh();
                 cfg.refresh();
+                yc.refresh();
               }}
             >
               Reintentar
             </button>
           }
         >
-          {list.error ?? cfg.error}
+          {list.error ?? cfg.error ?? yc.error}
         </Notice>
       )}
 
@@ -104,9 +107,77 @@ export default function TransparencyPage() {
         <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-t border-line pt-6 lg:grid-cols-4">
           <Stat size="lg" label="Vendido en preventas" value={list.data ? formatMoney(sold) : <Skeleton className="mt-1 h-7 w-24" />} />
           <Stat size="lg" label={<><Term k="aval">Avales</Term> vigentes</>} value={list.data ? formatMoney(bonds) : <Skeleton className="mt-1 h-7 w-24" />} />
-          <Stat size="lg" label={<Term k="fondo">Fondo común</Term>} value={cfg.data ? formatMoney(cfg.data.pool) : <Skeleton className="mt-1 h-7 w-24" />} />
+          <Stat
+            size="lg"
+            label={<>{testYield ? "Rendimiento de prueba" : <Term k="rendimiento">Rendimiento</Term>} pagado</>}
+            value={yc.data ? formatMoney(yc.data.yield_paid) : <Skeleton className="mt-1 h-7 w-24" />}
+          />
           <Stat size="lg" label="Productores" value={list.data ? producers : <Skeleton className="mt-1 h-7 w-24" />} />
         </dl>
+      </section>
+
+      <section aria-labelledby="waiting" className="space-y-4">
+        <div className="space-y-1">
+          <h2 id="waiting" className="h-section">
+            Dónde espera el dinero
+          </h2>
+          <p className="max-w-3xl text-ink-2">
+            Mientras espera la entrega, la mayor parte se presta en un servicio de préstamos de Stellar y gana{" "}
+            <Term k="rendimiento">rendimiento</Term>
+            {testYield && <> (en esta versión, un rendimiento de prueba)</>}. Una parte queda siempre en el contrato para pagar al instante. Mostramos
+            lo ganado, nunca una tasa prometida.
+          </p>
+        </div>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-4">
+          <Stat size="lg" label="Total en el contrato" value={yc.data ? formatMoney(yc.data.idle + yc.data.invested) : <Skeleton className="mt-1 h-7 w-24" />} />
+          <Stat size="lg" label="Prestado, ganando" value={yc.data ? formatMoney(yc.data.invested) : <Skeleton className="mt-1 h-7 w-24" />} />
+          <Stat
+            size="lg"
+            label="Listo para pagar al instante"
+            value={yc.data ? formatMoney(yc.data.idle) : <Skeleton className="mt-1 h-7 w-24" />}
+            hint={yc.data ? <>Se mantiene cerca del {formatPct(yc.data.liquid_bps)} del total.</> : undefined}
+          />
+          <Stat
+            size="lg"
+            label="Pérdidas del servicio de préstamos"
+            value={yc.data ? formatMoney(yc.data.yield_loss) : <Skeleton className="mt-1 h-7 w-24" />}
+            hint="Si hubiera, se reparten en la misma proporción y quedan registradas."
+          />
+        </dl>
+        {yc.data && !yc.data.enabled && (
+          <Notice tone="neutral">Por ahora el dinero nuevo no se presta: queda entero en el contrato.</Notice>
+        )}
+        <details className="group rounded-md bg-surface-2 px-4 py-1">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 font-bold">
+            Ver la prueba
+            <ChevronDown className="size-5 transition group-open:rotate-180" aria-hidden />
+          </summary>
+          <div className="mt-2 mb-3 space-y-2 text-ink-2">
+            {yc.data?.pool ? (
+              <>
+                <p>
+                  {testYield
+                    ? "En testnet el contrato presta a un fondo de prueba que imita la interfaz de Blend, el servicio de préstamos de Stellar (Blend no tiene USDC de Circle en testnet). Su tasa es fija y de prueba."
+                    : "El contrato presta a un fondo de Blend, el servicio de préstamos de Stellar."}{" "}
+                  Recibe a cambio b-tokens, que valen más con el tiempo. La dirección del fondo quedó fija al crear el contrato: nadie puede
+                  cambiarla.
+                </p>
+                <p className="flex flex-wrap gap-x-5 gap-y-1">
+                  <ExplorerLink path={`contract/${yc.data.pool}`}>Fondo de préstamos {shortAddress(yc.data.pool)}</ExplorerLink>
+                </p>
+              </>
+            ) : (
+              <p>Este contrato no presta el dinero: queda entero en custodia.</p>
+            )}
+            {yc.data && (
+              <p>
+                Reparto al entregar: {formatPct(yc.data.buyer_yield_bps)} para el comprador
+                {yc.data.protocol_yield_bps > 0 && <>, {formatPct(yc.data.protocol_yield_bps)} para Ayni</>} y el resto para el productor. Si se
+                devuelve, todo para el comprador. Lo del aval, para quien lo dejó.
+              </p>
+            )}
+          </div>
+        </details>
       </section>
 
       <section aria-labelledby="split" className="space-y-4">
@@ -142,17 +213,22 @@ export default function TransparencyPage() {
           <h2 className="h-section">Reglas del contrato</h2>
           <ul className="space-y-2 text-ink-2">
             <li>
-              Comisión: <b className="text-ink">{cfg.data ? formatPct(cfg.data.fee_bps) : "…"}</b> de cada pago a productores, que va entera al fondo común.
+              <b className="text-ink">Sin comisión</b> sobre el precio, ni para compradores ni para productores. Ayni solo podría quedarse con una
+              parte del rendimiento (hoy <b className="text-ink">{yc.data ? formatPct(yc.data.protocol_yield_bps) : "…"}</b>, como máximo 20%).
             </li>
             <li>
               Plazo para disputar una entrega: <b className="text-ink">{cfg.data ? formatDuration(Number(cfg.data.dispute_window)) : "…"}</b> en
               las preventas nuevas. Cada preventa conserva el plazo con el que se creó: nadie puede acortarlo después.
             </li>
             <li>Verificadores: solo instituciones autorizadas pueden verificar una preventa. El productor no puede nombrar a un conocido.</li>
+            <li>
+              Adelantos: solo para productores con identidad <Term k="verificado">verificada</Term>, y siempre con un aval que cubre el 100% de lo
+              adelantado.
+            </li>
             <li>Todo o nada: si una preventa no llega al mínimo, cada comprador recupera el 100%.</li>
             <li>
-              Si un productor no cumple: reembolso desde la custodia, luego su aval y luego el fondo común, que aporta como máximo el{" "}
-              <b className="text-ink">{cfg.data ? formatPct(cfg.data.pool_cap_bps) : "…"}</b> de su saldo por caso.
+              Si un productor no cumple: reembolso desde el pago en custodia y luego su aval. Como el aval cubre todo adelanto, alcanza para el
+              precio completo, salvo que el servicio de préstamos pierda dinero.
             </li>
           </ul>
           <div className="overflow-x-auto">

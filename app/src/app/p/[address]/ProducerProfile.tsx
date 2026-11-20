@@ -4,7 +4,7 @@
 
 import { ArrowLeft, ChevronDown, MapPin, UserRound } from "lucide-react";
 import Link from "next/link";
-import { Stars, Streak, TierBadge } from "@/components/badges";
+import { Stars, Streak, TierBadge, VerifiedBadge } from "@/components/badges";
 import { CampaignCard } from "@/components/CampaignCard";
 import { EmptyState, ExplorerLink, Skeleton, Stat, Term } from "@/components/ui";
 import { avgRating, isValidAddress } from "@/lib/despensa";
@@ -52,6 +52,7 @@ export default function ProducerProfile({ address }: { address: string }) {
           </p>
           {s ? (
             <div className="flex flex-wrap items-center gap-2">
+              <VerifiedBadge seller={address} />
               <TierBadge tier={s.tier.tier} size="md" />
               <Stars value={avgRating(s.rep)} count={s.rep.rating_count} />
               <Streak n={s.rep.streak} compact />
@@ -80,8 +81,8 @@ export default function ProducerProfile({ address }: { address: string }) {
             . Nivel <b className="text-ink">{TIER_NAMES[s.tier.tier]}</b>:{" "}
             {s.tier.max_advance_bps > 0 ? (
               <>
-                puede recibir hasta {formatPct(s.tier.max_advance_bps)} por adelantado, solo con evidencia aprobada y un <Term k="aval">aval</Term> del{" "}
-                {formatPct(s.tier.bond_cover_bps)} de lo adelantado.
+                puede recibir hasta {formatPct(s.tier.max_advance_bps)} por adelantado si tiene identidad verificada, solo con evidencia aprobada y
+                un <Term k="aval">aval</Term> que cubre el {formatPct(s.tier.bond_cover_bps)} de lo adelantado.
               </>
             ) : (
               <>solo puede vender con pago contra entrega hasta cumplir 3 preventas seguidas por cada incumplimiento.</>

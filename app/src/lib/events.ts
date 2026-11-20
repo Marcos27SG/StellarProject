@@ -21,7 +21,7 @@ export interface PendingDelivery {
 }
 
 /** Event names as the contract publishes them (`#[contractevent]` = snake_case struct name). */
-export type CampaignEventName = "delivery_marked" | "disputed" | "purchased" | "delivered" | "refunded";
+export type CampaignEventName = "delivery_marked" | "disputed" | "purchased" | "delivered" | "refunded" | "yield_paid";
 
 /** The slice of rpc.Server this module needs (injectable for tests). */
 export interface EventSource {
@@ -60,12 +60,41 @@ export function cursorLedger(cursor: string): number {
   return Number(BigInt(toid) >> BigInt(32));
 }
 
-function topicFilter(name: CampaignEventName, id: bigint): string[] {
+function topicFilter(name: CampaignEventName, id: bigint, who?: string): string[] {
   return [
     xdr.ScVal.scvSymbol(name).toXDR("base64"),
     nativeToScVal(id, { type: "u64" }).toXDR("base64"),
-    "*",
+    who ? nativeToScVal(who, { type: "address" }).toXDR("base64") : "*",
   ];
+}
+
+/** Every `names` event for campaign `id` (optionally only those whose second topic is `who`), oldest first. */
+async function scanCampaignEvents(
+  id: bigint,
+  createdAt: bigint,
+  names: CampaignEventName[],
+  src: EventSource,
+  nowSeconds?: number,
+  who?: string,
+): Promise<rpc.Api.EventResponse[]> {
+  const health = await src.getHealth();
+  const filters: rpc.Api.EventFilter[] = [
+    { type: "contract", contractIds: [config.contractId], topics: names.map((n) => topicFilter(n, id, who)) },
+  ];
+  const out: rpc.Api.EventResponse[] = [];
+  let request: rpc.Api.GetEventsRequest = {
+    startLedger: startLedgerFor(createdAt, health, nowSeconds),
+    filters,
+    limit: PAGE_LIMIT,
+  };
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const res = await src.getEvents(request);
+    out.push(...res.events);
+    const caughtUp = res.events.length < PAGE_LIMIT && cursorLedger(res.cursor) >= res.latestLedger;
+    if (caughtUp || !res.cursor) break;
+    request = { cursor: res.cursor, filters, limit: PAGE_LIMIT };
+  }
+  return out;
 }
 
 /**
@@ -79,27 +108,41 @@ export async function campaignEventAddresses(
   src: EventSource = source(),
   nowSeconds?: number,
 ): Promise<string[]> {
-  const health = await src.getHealth();
-  const filters: rpc.Api.EventFilter[] = [
-    { type: "contract", contractIds: [config.contractId], topics: names.map((n) => topicFilter(n, id)) },
-  ];
   const found = new Set<string>();
-  let request: rpc.Api.GetEventsRequest = {
-    startLedger: startLedgerFor(createdAt, health, nowSeconds),
-    filters,
-    limit: PAGE_LIMIT,
-  };
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const res = await src.getEvents(request);
-    for (const e of res.events) {
-      const addr = e.topic[2] ? scValToNative(e.topic[2]) : null;
-      if (typeof addr === "string") found.add(addr);
-    }
-    const caughtUp = res.events.length < PAGE_LIMIT && cursorLedger(res.cursor) >= res.latestLedger;
-    if (caughtUp || !res.cursor) break;
-    request = { cursor: res.cursor, filters, limit: PAGE_LIMIT };
+  for (const e of await scanCampaignEvents(id, createdAt, names, src, nowSeconds)) {
+    const addr = e.topic[2] ? scValToNative(e.topic[2]) : null;
+    if (typeof addr === "string") found.add(addr);
   }
   return [...found];
+}
+
+export type YieldKind = "Buyer" | "Seller" | "Bond" | "Protocol";
+
+/** `{ amount, kind }` from a `yield_paid` event's data (kind is a unit enum: ["Seller"] or "Seller"). */
+export function decodeYieldPaid(data: unknown): { amount: bigint; kind: YieldKind } | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as { amount?: unknown; kind?: unknown };
+  const kind = Array.isArray(d.kind) ? d.kind[0] : d.kind;
+  if (typeof kind !== "string" || d.amount === undefined) return null;
+  return { amount: BigInt(d.amount as bigint | number | string), kind: kind as YieldKind };
+}
+
+/**
+ * The most recent yield paid to `to` in campaign `id` as `kind` (the seller's share on the last
+ * delivery, for "Cobraste"). Null when there is none (no yield yet, or older than event retention).
+ */
+export async function latestYieldPaid(
+  c: Pick<Campaign, "id" | "created_at">,
+  to: string,
+  kind: YieldKind,
+  src: EventSource = source(),
+): Promise<bigint | null> {
+  const events = await scanCampaignEvents(c.id, c.created_at, ["yield_paid"], src, undefined, to);
+  for (let i = events.length - 1; i >= 0; i--) {
+    const y = decodeYieldPaid(scValToNative(events[i].value));
+    if (y && y.kind === kind) return y.amount;
+  }
+  return null;
 }
 
 export interface PendingDeliveryDeps {

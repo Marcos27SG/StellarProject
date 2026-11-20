@@ -17,11 +17,11 @@ const rep = (over: Partial<Reputation> = {}): Reputation => ({
 describe("tierOf mirrors the contract table", () => {
   it.each([
     [0, 1, 2000, 10_000],
-    [1, 2, 3000, 5000],
-    [2, 2, 3000, 5000],
-    [3, 3, 4000, 2500],
-    [5, 3, 4000, 2500],
-    [6, 4, 5000, 1000],
+    [1, 2, 3000, 10_000],
+    [2, 2, 3000, 10_000],
+    [3, 3, 4000, 10_000],
+    [5, 3, 4000, 10_000],
+    [6, 4, 5000, 10_000],
   ])("%i completed -> tier %i", (completed, tier, adv, bond) => {
     expect(tierOf(rep({ completed }))).toEqual({ tier, max_advance_bps: adv, bond_cover_bps: bond });
   });

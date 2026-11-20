@@ -19,7 +19,7 @@ import { argsFor, nextActions, successMessage } from "@/lib/actions";
 import { isValidAddress } from "@/lib/despensa";
 import { formatQty, shortAddress } from "@/lib/format";
 import { KNOWN_VERIFIERS } from "@/lib/verifiers";
-import { invalidateCampaign, useCampaignItem, useContractConfig, useHolding, useNow, usePolling } from "@/lib/hooks";
+import { invalidateCampaign, useCampaignItem, useHolding, useNow, usePolling, useSellerYield } from "@/lib/hooks";
 
 function Deliver() {
   const params = useSearchParams();
@@ -31,7 +31,6 @@ function Deliver() {
   const { address, enabled, connect } = useWallet();
   const item = useCampaignItem(id);
   const holding = useHolding(id ?? BigInt(0), ok ? buyer : null);
-  const cfg = useContractConfig();
   const now = useNow();
   const [units, setUnits] = useState(() => Math.max(1, Number(params.get("units")) || 1));
   const tx = useAction();
@@ -40,6 +39,8 @@ function Deliver() {
   const hw = holding.data;
   const settled = !!watch && !!hw && (hw.delivered > watch.delivered || hw.disputed || hw.pending === 0);
   usePolling(holding.refresh, 5000, !!watch && !settled);
+  const confirmedNow = !!watch && !!hw && hw.delivered > watch.delivered;
+  const sellerYield = useSellerYield(item.data?.c, confirmedNow, hw?.delivered ?? 0);
   // Back on this page with a delivery still waiting (a reload at the stall, or coming back later):
   // keep watching, so "Cobraste" still appears when the buyer confirms.
   useEffect(() => {
@@ -192,7 +193,7 @@ function Deliver() {
             category={category}
             unitPrice={c.unit_price}
             releasedBps={c.released_bps}
-            feeBps={cfg.data?.fee_bps ?? 200}
+            sellerYield={sellerYield.loading ? undefined : (sellerYield.data ?? null)}
             verifier={KNOWN_VERIFIERS.find((v) => v.address === c.verifier)?.name ?? "el verificador"}
             windowLeft={h.pending > 0 ? Number(h.pending_since + c.dispute_window - now) : null}
           />

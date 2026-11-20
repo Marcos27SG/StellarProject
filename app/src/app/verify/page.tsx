@@ -4,17 +4,28 @@
 // address verifies. Buttons come from nextActions (verifier role) with the pending deliveries
 // read from contract events.
 
-import { ClipboardCheck, ExternalLink, Gavel, Scale } from "lucide-react";
+import { BadgeCheck, ClipboardCheck, ExternalLink, Gavel, Scale } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import { ActionList } from "@/components/ActionPanel";
 import { StatusPill } from "@/components/badges";
 import { CategoryTile } from "@/components/CategoryIcon";
 import { Money } from "@/components/Money";
-import { EmptyState, Notice, Skeleton, Term } from "@/components/ui";
-import { useWallet } from "@/components/Wallet";
+import { EmptyState, Field, Notice, Skeleton, Term, TxSteps } from "@/components/ui";
+import { readOnlyProps, useAction, useWallet } from "@/components/Wallet";
+import { isValidAddress } from "@/lib/despensa";
 import { nextActions, requiredBondFor } from "@/lib/actions";
 import { formatDate, formatPct, formatQty, safeHref, shortAddress } from "@/lib/format";
-import { useCampaignList, useNow, usePendingDeliveries, type CampaignItem } from "@/lib/hooks";
+import {
+  invalidate,
+  useCampaignList,
+  useContractConfig,
+  useNow,
+  usePendingDeliveries,
+  useSellerVerified,
+  useVerifierAllowed,
+  type CampaignItem,
+} from "@/lib/hooks";
 
 export default function VerifyPage() {
   const { address, enabled, connect } = useWallet();
@@ -57,6 +68,8 @@ export default function VerifyPage() {
           Aprobar un hito libera dinero de la custodia al productor y no se puede revertir. Revisa la evidencia antes.
         </Notice>
       </header>
+
+      <VerifySeller me={address} />
 
       {list.error && (
         <Notice
@@ -215,6 +228,95 @@ function InboxCard({ item: { c, meta, category } }: { item: CampaignItem }) {
             <ActionList actions={declare} c={c} category={category} />
           </div>
         </details>
+      )}
+    </section>
+  );
+}
+
+/**
+ * "Verificar productor": after checking a seller's identity off-chain (CI, NIT or co-op membership),
+ * an allowlisted verifier (or the admin) sets the on-chain flag that lets them ask for advances. Only
+ * the flag is stored: no documents, names or numbers. Revoking blocks new advances; paid ones stay paid.
+ */
+function VerifySeller({ me }: { me: string }) {
+  const { enabled } = useWallet();
+  const allowed = useVerifierAllowed(me);
+  const cfg = useContractConfig();
+  const [seller, setSeller] = useState("");
+  const addr = seller.trim();
+  const valid = isValidAddress(addr);
+  const status = useSellerVerified(valid ? addr : null);
+  const tx = useAction();
+  const [last, setLast] = useState<boolean | null>(null);
+  const canVerify = allowed.data === true || cfg.data?.admin === me;
+  if (allowed.data === undefined && cfg.data === undefined) return null;
+  if (!canVerify) return null;
+
+  const run = (verified: boolean) => {
+    setLast(verified);
+    return tx.run("set_seller_verified", { caller: me, seller: addr, verified }, () => invalidate(`sellerverified:${addr}`));
+  };
+  const self = addr === me;
+
+  return (
+    <section aria-labelledby="verify-seller" className="card space-y-4 p-5">
+      <div className="space-y-1">
+        <h2 id="verify-seller" className="h-section flex items-center gap-2">
+          <BadgeCheck className="size-6 text-brand" aria-hidden /> Verificar productor
+        </h2>
+        <p className="text-ink-2">
+          Revisa su identidad fuera de la app (carnet, NIT o que sea socio de la cooperativa) y luego marca su cuenta. Solo los productores{" "}
+          <Term k="verificado">verificados</Term> pueden pedir adelantos. No subas ni guardes documentos aquí: en el contrato queda solo la marca.
+        </p>
+      </div>
+      <Field
+        label="Cuenta del productor"
+        hint="La dirección que empieza con G, la que te envió el productor."
+        error={addr && !valid ? "No es una dirección de Stellar válida." : self ? "No puedes verificarte a ti mismo." : undefined}
+      >
+        <input
+          value={seller}
+          onChange={(e) => {
+            setSeller(e.target.value);
+            tx.reset();
+          }}
+          placeholder="G…"
+          autoComplete="off"
+          spellCheck={false}
+          className="font-mono"
+        />
+      </Field>
+      {valid && !self && (
+        <p className="text-ink-2" aria-live="polite">
+          {status.data === undefined ? "Consultando…" : status.data ? "Esta cuenta ya está verificada." : "Esta cuenta todavía no está verificada."}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button
+          className="btn"
+          disabled={!valid || self || tx.busy || status.data === true}
+          {...readOnlyProps(enabled)}
+          onClick={() => run(true)}
+        >
+          Verificar productor
+        </button>
+        <button
+          className="btn-secondary"
+          disabled={!valid || self || tx.busy || status.data !== true}
+          {...readOnlyProps(enabled)}
+          onClick={() => run(false)}
+        >
+          Quitar verificación
+        </button>
+      </div>
+      {tx.phase !== "idle" && (
+        <TxSteps
+          phase={tx.phase}
+          error={tx.error}
+          hash={tx.hash}
+          failedAt={tx.failedAt}
+          success={last ? "Productor verificado: ya puede pedir adelantos." : "Verificación quitada: no podrá recibir nuevos adelantos."}
+        />
       )}
     </section>
   );
