@@ -53,7 +53,9 @@ export function YieldEarned({ c, h, buyer, category }: { c: Campaign; h: Holding
         {test && (
           <>
             {" "}
-            (<Term k="rendimiento">rendimiento de prueba</Term>)
+            <span className="whitespace-nowrap">
+              (<Term k="rendimiento">rendimiento de prueba</Term>)
+            </span>
           </>
         )}
         .{live && accrued > zero && " Es tu parte: la recibes cuando confirmas."}

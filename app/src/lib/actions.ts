@@ -735,7 +735,8 @@ function bondAction(role: Role, description: string): Action {
     label: role === "seller" ? "Poner aval" : "Avalar al productor",
     description,
     input: "amount",
-    confirm: "El monto queda bloqueado hasta que termine la campaña. Si el productor incumple, se usa para reembolsar.",
+    confirm:
+      "El monto queda bloqueado hasta que termine la campaña. Si el productor incumple, se usa para reembolsar. Mientras tanto gana rendimiento para quien lo deja.",
     tone: "default",
   };
 }
@@ -751,10 +752,10 @@ function withdrawAction(role: Role, c: Campaign, bond: bigint): Action | null {
     method: "withdraw_bond",
     label: partial ? "Retirar lo que queda de mi aval" : "Retirar mi aval",
     description: partial
-      ? "Parte del aval se usó para reembolsar a los compradores; recuperas el resto."
+      ? "Parte del aval se usó para reembolsar a los compradores; recuperas el resto y lo que ganó tu aval."
       : defaulted
-        ? "Los reembolsos se cubrieron sin usar el aval: recuperas el 100%."
-        : "La campaña terminó sin incumplimiento: recuperas el 100% de tu aval.",
+        ? "Los reembolsos se cubrieron sin usar el aval: recuperas el 100%, más lo que ganó."
+        : "La campaña terminó sin incumplimiento: recuperas el 100% de tu aval, más lo que ganó.",
     tone: "primary",
   };
 }

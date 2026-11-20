@@ -28,7 +28,7 @@ function Deliver() {
   const ok = /^\d+$/.test(rawId) && isValidAddress(buyer);
   const id = ok ? BigInt(rawId) : null;
 
-  const { address, enabled, connect } = useWallet();
+  const { address, enabled, connect, refreshBalance } = useWallet();
   const item = useCampaignItem(id);
   const holding = useHolding(id ?? BigInt(0), ok ? buyer : null);
   const now = useNow();
@@ -41,6 +41,9 @@ function Deliver() {
   usePolling(holding.refresh, 5000, !!watch && !settled);
   const confirmedNow = !!watch && !!hw && hw.delivered > watch.delivered;
   const sellerYield = useSellerYield(item.data?.c, confirmedNow, hw?.delivered ?? 0);
+  useEffect(() => {
+    if (confirmedNow) refreshBalance();
+  }, [confirmedNow, refreshBalance]);
   // Back on this page with a delivery still waiting (a reload at the stall, or coming back later):
   // keep watching, so "Cobraste" still appears when the buyer confirms.
   useEffect(() => {

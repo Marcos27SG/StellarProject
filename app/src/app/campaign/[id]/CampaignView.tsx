@@ -363,7 +363,12 @@ function OnChain({ c, category }: { c: Campaign; category: CategoryDef }) {
               <Money amount={c.yield_paid + (accrued > zero ? accrued : zero)} category={category} size="sm" showBs={false} />
             )
           }
-          hint={<>Pagado: <Money amount={c.yield_paid} category={category} size="sm" showBs={false} />. El resto se reparte al entregar o devolver.</>}
+          hint={
+            <>
+              Pagado: <Money amount={c.yield_paid} category={category} size="sm" showBs={false} />.
+              {accrued !== undefined && accrued > zero && " El resto se reparte al entregar o devolver."}
+            </>
+          }
         />
       </dl>
       <p className="mt-5 flex flex-wrap gap-x-5 gap-y-1">
