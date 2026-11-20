@@ -164,16 +164,14 @@ describe("conversion", () => {
 });
 
 describe("moneyFlow", () => {
-  it("reproduces the DESIGN.md worked example: 10 L at 1 USDC, 20% milestone, 2% fee -> 9.80", () => {
+  it("reproduces the DESIGN.md worked example: 10 L at 1 USDC, 20% milestone, no fee -> 10.00", () => {
     const d = ready({ price: "1", maxUnits: "10", milestones: [{ title: "x", pct: 20, enabled: true }] });
     expect(advanceBps(d)).toBe(2000);
-    const f = moneyFlow(d, 10_000, 200);
+    const f = moneyFlow(d, 10_000);
     expect(f.gross).toBe(parseUsd("10"));
     expect(f.advance).toBe(parseUsd("2"));
-    expect(f.advanceNet).toBe(parseUsd("1.96"));
     expect(f.bondNeeded).toBe(parseUsd("2"));
-    expect(f.onDeliveryNet).toBe(parseUsd("7.84"));
-    expect(f.totalNet).toBe(parseUsd("9.80"));
-    expect(f.fee).toBe(parseUsd("0.20"));
+    expect(f.onDelivery).toBe(parseUsd("8"));
+    expect(f.total).toBe(parseUsd("10"));
   });
 });

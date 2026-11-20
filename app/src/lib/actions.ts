@@ -306,13 +306,13 @@ function buyerActions(c: Campaign, h: Holding | null, ctx: ActionContext): Actio
       break;
     }
     case "Failed": {
-      if (outstanding > 0) out.push(refundAction(role, "Recuperas el 100% de lo que pagaste."));
+      if (outstanding > 0) out.push(refundAction(role, "Recuperas el 100% de lo que pagaste, más lo que ganó mientras esperaba."));
       break;
     }
     case "Defaulted": {
       if (outstanding > 0) {
         out.push(
-          refundAction(role, "Se te devuelve desde la custodia, luego el aval y luego el fondo común."),
+          refundAction(role, "Se te devuelve desde tu pago en custodia y luego el aval del productor, que cubre todo adelanto. Más lo que ganó mientras esperaba."),
         );
       }
       if (h && (h.delivered > 0 || h.refunded > 0) && !h.rated) out.push(rateAction(role));
@@ -735,7 +735,8 @@ function bondAction(role: Role, description: string): Action {
     label: role === "seller" ? "Poner aval" : "Avalar al productor",
     description,
     input: "amount",
-    confirm: "El monto queda bloqueado hasta que termine la campaña. Si el productor incumple, se usa para reembolsar.",
+    confirm:
+      "El monto queda bloqueado hasta que termine la campaña. Si el productor incumple, se usa para reembolsar. Mientras tanto gana rendimiento para quien lo deja.",
     tone: "default",
   };
 }
@@ -751,10 +752,10 @@ function withdrawAction(role: Role, c: Campaign, bond: bigint): Action | null {
     method: "withdraw_bond",
     label: partial ? "Retirar lo que queda de mi aval" : "Retirar mi aval",
     description: partial
-      ? "Parte del aval se usó para reembolsar a los compradores; recuperas el resto."
+      ? "Parte del aval se usó para reembolsar a los compradores; recuperas el resto y lo que ganó tu aval."
       : defaulted
-        ? "Los reembolsos se cubrieron sin usar el aval: recuperas el 100%."
-        : "La campaña terminó sin incumplimiento: recuperas el 100% de tu aval.",
+        ? "Los reembolsos se cubrieron sin usar el aval: recuperas el 100%, más lo que ganó."
+        : "La campaña terminó sin incumplimiento: recuperas el 100% de tu aval, más lo que ganó.",
     tone: "primary",
   };
 }

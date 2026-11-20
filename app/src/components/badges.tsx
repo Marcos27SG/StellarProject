@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useId } from "react";
 import {
+  BadgeCheck,
   CircleAlert,
   CircleCheck,
   History,
@@ -16,7 +17,7 @@ import {
 } from "lucide-react";
 import { avgRating, type Campaign, type StatusTag } from "@/lib/despensa";
 import { formatNumber, formatPct, shortAddress } from "@/lib/format";
-import { useProducer, type ProducerStats } from "@/lib/hooks";
+import { useProducer, useSellerVerified, type ProducerStats } from "@/lib/hooks";
 import { TIER_LIMITS, TIER_NAMES } from "@/lib/reputation";
 import { Pill, type PillTone } from "./ui";
 
@@ -112,11 +113,26 @@ export function TierBadge({ tier, size = "sm" }: { tier: number; size?: "sm" | "
   );
 }
 
-/** What a tier allows, in words: "Anticipo hasta 30% · aval 50%". */
+/** What a tier allows, in words: "Anticipo hasta 30%". The aval always covers 100% of it. */
 export function tierTerms(tier: number): string {
   const l = TIER_LIMITS[tier];
   if (!l) return "";
-  return l.maxAdvanceBps === 0 ? "Sin anticipos" : `Anticipo hasta ${formatPct(l.maxAdvanceBps)} · aval ${formatPct(l.bondCoverBps)}`;
+  return l.maxAdvanceBps === 0 ? "Sin anticipos" : `Anticipo hasta ${formatPct(l.maxAdvanceBps)}`;
+}
+
+/**
+ * "Verificado": a verifier checked this seller's identity off-chain (only the flag is on chain).
+ * Icon + word, never color alone. Renders nothing while loading or when not verified.
+ */
+export function VerifiedBadge({ seller }: { seller: string }) {
+  const q = useSellerVerified(seller);
+  if (!q.data) return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-sm font-bold whitespace-nowrap text-brand" title="Un verificador revisó su identidad">
+      <BadgeCheck className="size-4" aria-hidden />
+      Verificado
+    </span>
+  );
 }
 
 /** One tier as a tile (board 03, "Niveles"): diamonds, name, what it allows. The top tiers sit on the accent tint. */
@@ -261,6 +277,7 @@ export function ProducerLine({
       ) : (
         <span className="font-bold text-ink">{name}</span>
       )}
+      <VerifiedBadge seller={seller} />
       {s ? (
         <>
           <TierBadge tier={s.tier.tier} />

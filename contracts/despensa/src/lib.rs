@@ -6,30 +6,40 @@
 //! when it is earned:
 //!
 //! * **All-or-nothing goal**: if not enough units are sold, everyone gets 100% back.
-//! * **Milestone advances**: the producer can receive part of the money up front (to buy feed,
-//!   seeds, materials) only when an independent verifier approves evidence of progress, and only
-//!   up to a limit set by the producer's on-chain reputation tier.
-//! * **Bond / "aval solidario"**: advances must be backed by a bond posted by the producer or by
-//!   guarantors (co-op, family, other producers). The bond is slashed to refund buyers on default.
+//! * **Milestone advances**: only identity-verified producers can receive part of the money up
+//!   front (to buy feed, seeds, materials), only when an independent verifier approves evidence of
+//!   progress, and only up to a limit set by the producer's on-chain reputation tier.
+//! * **Bond / "aval solidario"**: every advance is 100% backed by a bond posted by the producer or
+//!   by guarantors (co-op, family, other producers). The bond is slashed to refund buyers on
+//!   default, so a default after advances still returns the full price.
 //! * **Pay on delivery**: the rest of each unit's price is released only when the buyer confirms
 //!   reception (or the seller's delivery claim survives a dispute window).
-//! * **Guarantee pool**: a small fee on every payout funds a pool that tops up refunds on default.
+//! * **Yield while waiting**: idle escrow and bonds are supplied to a lending pool (Blend). A
+//!   delivered unit's yield is split between buyer and seller, a refunded unit's yield goes to the
+//!   buyer, a bond's yield goes to whoever posted it. Losses in the pool are passed on pro rata
+//!   and recorded, never hidden.
 //! * **Reputation**: completed campaigns, streaks, defaults and ratings live on-chain and unlock
-//!   bigger advances with smaller bonds over time.
+//!   bigger advances over time.
 //!
 //! The same mechanism scales to off-plan real estate ("pre-venta" of apartments): milestones become
 //! construction stages certified by an engineer, like Dubai's and India's escrow regulations.
 
 mod events;
 mod types;
+mod vault;
+#[path = "yield.rs"]
+mod yield_source;
 
 #[cfg(test)]
 mod test;
+#[cfg(test)]
+mod test_yield;
 
 use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, Env, String, Vec};
 
 use events::*;
 pub use types::*;
+use vault::Vault;
 
 #[contract]
 pub struct Despensa;
@@ -51,8 +61,8 @@ fn admin(env: &Env) -> Address {
     env.storage().instance().get(&DataKey::Admin).unwrap()
 }
 
-fn fee_bps(env: &Env) -> u32 {
-    env.storage().instance().get(&DataKey::FeeBps).unwrap_or(0)
+fn treasury(env: &Env) -> Address {
+    env.storage().instance().get(&DataKey::Treasury).unwrap()
 }
 
 fn dispute_window(env: &Env) -> u64 {
@@ -62,22 +72,26 @@ fn dispute_window(env: &Env) -> u64 {
         .unwrap_or(0)
 }
 
+fn inst_u32(env: &Env, key: &DataKey, default: u32) -> u32 {
+    env.storage().instance().get(key).unwrap_or(default)
+}
+
+fn inst_i128(env: &Env, key: &DataKey) -> i128 {
+    env.storage().instance().get(key).unwrap_or(0)
+}
+
+fn add_inst_i128(env: &Env, key: &DataKey, amount: i128) {
+    if amount != 0 {
+        let v = inst_i128(env, key) + amount;
+        env.storage().instance().set(key, &v);
+    }
+}
+
 fn check_window(seconds: u64) -> Result<(), Error> {
     if !(MIN_DISPUTE_WINDOW..=MAX_DISPUTE_WINDOW).contains(&seconds) {
         return Err(Error::WindowOutOfRange);
     }
     Ok(())
-}
-
-fn pool(env: &Env) -> i128 {
-    env.storage().instance().get(&DataKey::Pool).unwrap_or(0)
-}
-
-fn pool_cap_bps(env: &Env) -> u32 {
-    env.storage()
-        .instance()
-        .get(&DataKey::PoolCapBps)
-        .unwrap_or(DEFAULT_POOL_CAP_BPS)
 }
 
 fn is_allowed_verifier(env: &Env, who: &Address) -> bool {
@@ -91,8 +105,15 @@ fn is_allowed_verifier(env: &Env, who: &Address) -> bool {
     allowed
 }
 
-fn set_pool(env: &Env, value: i128) {
-    env.storage().instance().set(&DataKey::Pool, &value);
+fn is_seller_verified(env: &Env, seller: &Address) -> bool {
+    let key = DataKey::SellerVerified(seller.clone());
+    let verified: bool = env.storage().persistent().get(&key).unwrap_or(false);
+    if verified {
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND);
+    }
+    verified
 }
 
 fn get_campaign(env: &Env, id: u64) -> Result<Campaign, Error> {
@@ -161,16 +182,16 @@ fn save_buyer(env: &Env, who: &Address, s: &BuyerStats) {
         .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND);
 }
 
-fn get_bond(env: &Env, id: u64, who: &Address) -> i128 {
+fn get_bond(env: &Env, id: u64, who: &Address) -> BondPos {
     env.storage()
         .persistent()
         .get(&DataKey::Bond(id, who.clone()))
-        .unwrap_or(0)
+        .unwrap_or_default()
 }
 
-fn save_bond(env: &Env, id: u64, who: &Address, amount: i128) {
+fn save_bond(env: &Env, id: u64, who: &Address, b: &BondPos) {
     let key = DataKey::Bond(id, who.clone());
-    env.storage().persistent().set(&key, &amount);
+    env.storage().persistent().set(&key, b);
     env.storage()
         .persistent()
         .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND);
@@ -180,15 +201,16 @@ fn save_bond(env: &Env, id: u64, who: &Address, amount: i128) {
 // Business rules
 // ---------------------------------------------------------------------------
 
-/// Reputation -> how much a producer may receive in advance and how much bond must back it.
+/// Reputation -> how much a verified producer may receive in advance. Every advance is backed
+/// 100% by the bond at every tier: reputation raises the ceiling, never lowers the bond.
 ///
-/// | Tier | Who                         | Max advance | Bond required (of advance) |
-/// |------|-----------------------------|-------------|----------------------------|
-/// | 0    | Defaulted, streak not rebuilt | 0%        | 100%                       |
-/// | 1    | New producer                | 20%         | 100%                       |
-/// | 2    | 1-2 completed campaigns     | 30%         | 50%                        |
-/// | 3    | 3-5 completed campaigns     | 40%         | 25%                        |
-/// | 4    | 6+ completed campaigns      | 50%         | 10%                        |
+/// | Tier | Who                           | Max advance | Bond required (of advance) |
+/// |------|-------------------------------|-------------|----------------------------|
+/// | 0    | Defaulted, streak not rebuilt | 0%          | 100%                       |
+/// | 1    | New producer                  | 20%         | 100%                       |
+/// | 2    | 1-2 completed campaigns       | 30%         | 100%                       |
+/// | 3    | 3-5 completed campaigns       | 40%         | 100%                       |
+/// | 4    | 6+ completed campaigns        | 50%         | 100%                       |
 ///
 /// An average rating below 3 stars (with 5+ ratings) caps the producer at tier 1.
 ///
@@ -212,44 +234,104 @@ fn tier_for(rep: &Reputation) -> TierInfo {
     if rep.rating_count >= 5 && rep.rating_sum < rep.rating_count * 3 && tier > 1 {
         tier = 1;
     }
-    let (max_advance_bps, bond_cover_bps) = match tier {
-        1 => (2_000, 10_000),
-        2 => (3_000, 5_000),
-        3 => (4_000, 2_500),
-        _ => (5_000, 1_000),
+    let max_advance_bps = match tier {
+        1 => 2_000,
+        2 => 3_000,
+        3 => 4_000,
+        _ => 5_000,
     };
     TierInfo {
         tier,
         max_advance_bps,
-        bond_cover_bps,
+        bond_cover_bps: 10_000,
     }
 }
 
-/// Pays `gross` out of the campaign escrow to the seller. The protocol fee goes to the
-/// guarantee pool. Returns the net amount the seller received.
-fn pay_seller(env: &Env, c: &mut Campaign, gross: i128) -> i128 {
+/// Shares that go with `principal` out of a bucket holding `total` principal and `shares`.
+/// Attributed per unit of principal (not per holding time). The last outflow takes them all.
+fn portion(shares: i128, principal: i128, total: i128) -> i128 {
+    if principal >= total || total <= 0 {
+        shares
+    } else {
+        shares * principal / total
+    }
+}
+
+fn record_loss(env: &Env, c: &mut Campaign, amount: i128) {
+    if amount > 0 {
+        c.yield_loss += amount;
+        add_inst_i128(env, &DataKey::YieldLoss, amount);
+        YieldLoss { id: c.id, amount }.publish(env);
+    }
+}
+
+fn record_yield(env: &Env, c: &mut Campaign, to: &Address, amount: i128, kind: YieldKind) {
+    if amount > 0 {
+        c.yield_paid += amount;
+        add_inst_i128(env, &DataKey::YieldPaid, amount);
+        YieldPaid {
+            id: c.id,
+            to: to.clone(),
+            amount,
+            kind,
+        }
+        .publish(env);
+    }
+}
+
+/// Pays an advance of exactly `gross` principal from escrow to the seller. The yield earned on
+/// it stays in escrow and is shared with the later deliveries and refunds.
+fn pay_advance(env: &Env, v: &mut Vault, c: &mut Campaign, gross: i128) -> i128 {
     if gross <= 0 {
         return 0;
     }
-    let fee = gross * fee_bps(env) as i128 / BPS;
-    let net = gross - fee;
+    let shares = v.shares_for(gross).min(c.escrow_shares);
+    c.escrow_shares -= shares;
     c.escrow -= gross;
-    if fee > 0 {
-        set_pool(env, pool(env) + fee);
-    }
-    if net > 0 {
-        token_client(env).transfer(&env.current_contract_address(), &c.seller, &net);
-    }
-    net
+    let value = v.burn(shares);
+    let paid = value.min(gross);
+    v.pay(&c.seller, paid);
+    record_loss(env, c, gross - paid);
+    paid
 }
 
-/// Releases the remaining price of `units` delivered to `buyer`.
-fn deliver(env: &Env, c: &mut Campaign, buyer: &Address, h: &mut Holding, units: u32) -> i128 {
+/// Releases the remaining price of `units` delivered to `buyer`, plus that principal's yield:
+/// `buyer_yield_bps` of it to the buyer, `protocol_yield_bps` to Ayni, the rest to the seller.
+/// Returns what the seller received.
+fn deliver(
+    env: &Env,
+    v: &mut Vault,
+    c: &mut Campaign,
+    buyer: &Address,
+    h: &mut Holding,
+    units: u32,
+) -> i128 {
     let gross = (units as i128) * c.unit_price * (BPS - c.released_bps as i128) / BPS;
     let first_time = h.delivered == 0;
     c.delivered += units;
     h.delivered += units;
-    let net = pay_seller(env, c, gross);
+
+    let shares = portion(c.escrow_shares, gross, c.escrow);
+    c.escrow_shares -= shares;
+    c.escrow -= gross;
+    let value = v.burn(shares);
+    let (to_seller, to_buyer, to_protocol) = if value > gross {
+        let y = value - gross;
+        let b = y * c.buyer_yield_bps as i128 / BPS;
+        let p = y * c.protocol_yield_bps as i128 / BPS;
+        (value - b - p, b, p)
+    } else {
+        (value, 0, 0)
+    };
+    v.pay(&c.seller, to_seller);
+    v.pay(buyer, to_buyer);
+    v.pay(&treasury(env), to_protocol);
+    record_loss(env, c, gross - value);
+    record_yield(env, c, buyer, to_buyer, YieldKind::Buyer);
+    let seller = c.seller.clone();
+    record_yield(env, c, &seller, to_seller - gross, YieldKind::Seller);
+    record_yield(env, c, &treasury(env), to_protocol, YieldKind::Protocol);
+    h.yield_paid += to_buyer;
 
     let mut stats = get_buyer(env, buyer);
     stats.units_received += units;
@@ -266,10 +348,10 @@ fn deliver(env: &Env, c: &mut Campaign, buyer: &Address, h: &mut Holding, units:
         id: c.id,
         buyer: buyer.clone(),
         units,
-        paid_to_seller: net,
+        paid_to_seller: to_seller,
     }
     .publish(env);
-    net
+    to_seller
 }
 
 fn set_status(env: &Env, c: &mut Campaign, status: Status) {
@@ -277,17 +359,24 @@ fn set_status(env: &Env, c: &mut Campaign, status: Status) {
     StatusChanged { id: c.id, status }.publish(env);
 }
 
-fn complete_if_done(env: &Env, c: &mut Campaign) {
+fn complete_if_done(env: &Env, v: &mut Vault, c: &mut Campaign) {
     if c.status == Status::Active && c.delivered == c.sold {
-        complete(env, c);
+        complete(env, v, c);
     }
 }
 
-fn complete(env: &Env, c: &mut Campaign) {
-    // Rounding dust stays in the protocol as guarantee-pool funds.
-    if c.escrow > 0 {
-        set_pool(env, pool(env) + c.escrow);
+fn complete(env: &Env, v: &mut Vault, c: &mut Campaign) {
+    // Rounding dust left in escrow (and its yield) belongs to the seller: every unit was
+    // delivered.
+    if c.escrow > 0 || c.escrow_shares > 0 {
+        let dust = c.escrow;
+        let value = v.burn(c.escrow_shares);
+        c.escrow_shares = 0;
         c.escrow = 0;
+        v.pay(&c.seller, value);
+        record_loss(env, c, dust - value);
+        let seller = c.seller.clone();
+        record_yield(env, c, &seller, value - dust, YieldKind::Seller);
     }
     let mut rep = get_rep(env, &c.seller);
     rep.completed += 1;
@@ -305,10 +394,11 @@ fn fail(env: &Env, c: &mut Campaign) {
     set_status(env, c, Status::Failed);
 }
 
-/// Producer did not deliver: refund buyers from (1) what is left in escrow, (2) the bond,
-/// (3) the guarantee pool, in that order. One default can use at most `pool_cap_bps` of the
-/// pool, so a single campaign (or a ring of fake buyers) can never empty it.
-fn default_campaign(env: &Env, c: &mut Campaign) {
+/// Producer did not deliver: refund buyers from (1) what is left in escrow, then (2) the bond.
+/// There is no common fund: one campaign's default never touches anyone else's money.
+/// The bond's shares worth exactly the slashed principal move into escrow, so bond providers
+/// keep the yield on what was not slashed.
+fn default_campaign(env: &Env, v: &Vault, c: &mut Campaign) {
     let undelivered = c.sold - c.delivered;
     let owed = (undelivered as i128) * c.unit_price;
     let mut shortfall = owed - c.escrow;
@@ -320,18 +410,13 @@ fn default_campaign(env: &Env, c: &mut Campaign) {
     } else {
         shortfall
     };
-    shortfall -= from_bond;
-    let available_pool = pool(env);
-    let pool_limit = available_pool * pool_cap_bps(env) as i128 / BPS;
-    let from_pool = if pool_limit < shortfall {
-        pool_limit
-    } else {
-        shortfall
-    };
-    set_pool(env, available_pool - from_pool);
+    let moved = v.shares_for(from_bond).min(c.bond_shares);
+    c.bond_shares -= moved;
+    c.escrow_shares += moved;
+    c.bond_left -= from_bond;
 
     c.bond_slashed = from_bond;
-    c.escrow += from_bond + from_pool;
+    c.escrow += from_bond;
     c.refund_per_unit = if undelivered > 0 {
         let per_unit = c.escrow / undelivered as i128;
         if per_unit > c.unit_price {
@@ -358,6 +443,37 @@ fn require_status(c: &Campaign, status: Status) -> Result<(), Error> {
     Ok(())
 }
 
+fn check_split(buyer_bps: u32, protocol_bps: u32) -> Result<(), Error> {
+    if buyer_bps as i128 > BPS
+        || protocol_bps > MAX_PROTOCOL_YIELD_BPS
+        || (buyer_bps + protocol_bps) as i128 > BPS
+    {
+        return Err(Error::InvalidInput);
+    }
+    Ok(())
+}
+
+fn yield_changed(env: &Env) {
+    YieldConfigChanged {
+        enabled: vault::yield_enabled(env),
+        liquid_bps: vault::liquid_bps(env),
+        buyer_yield_bps: inst_u32(env, &DataKey::BuyerYieldBps, DEFAULT_BUYER_YIELD_BPS),
+        protocol_yield_bps: inst_u32(env, &DataKey::ProtocolYieldBps, 0),
+    }
+    .publish(env);
+}
+
+/// Value of a buyer's undelivered units and the principal behind them.
+fn holding_value(v: &Vault, c: &Campaign, units: u32) -> (i128, i128) {
+    let outstanding = (c.sold - c.delivered - c.refunded) as i128;
+    if units == 0 || outstanding <= 0 {
+        return (0, 0);
+    }
+    let principal = portion(c.escrow, units as i128, outstanding);
+    let shares = portion(c.escrow_shares, units as i128, outstanding);
+    (principal, v.value_of(shares))
+}
+
 // ---------------------------------------------------------------------------
 // Contract
 // ---------------------------------------------------------------------------
@@ -365,42 +481,52 @@ fn require_status(c: &Campaign, status: Status) -> Result<(), Error> {
 #[contractimpl]
 impl Despensa {
     /// `token`: settlement asset (USDC Stellar Asset Contract).
-    /// `fee_bps`: protocol fee on payouts to sellers, sent to the guarantee pool.
+    /// `treasury`: receives Ayni's share of the yield, if the admin ever sets one. Fixed for good.
     /// `dispute_window`: seconds a buyer has to dispute a seller's delivery claim
     /// (between `MIN_DISPUTE_WINDOW` and `MAX_DISPUTE_WINDOW`).
-    pub fn __constructor(env: Env, admin: Address, token: Address, fee_bps: u32, dispute_window: u64) {
-        if fee_bps > MAX_FEE_BPS {
-            panic_with_error!(&env, Error::FeeTooHigh);
-        }
+    /// `yield_pool`: the lending pool (Blend v2 interface) idle money is supplied to. Fixed for
+    /// good: an admin who could change it could point it at a contract of their own. None turns
+    /// yield off.
+    pub fn __constructor(
+        env: Env,
+        admin: Address,
+        token: Address,
+        treasury: Address,
+        dispute_window: u64,
+        yield_pool: Option<Address>,
+    ) {
         if check_window(dispute_window).is_err() {
             panic_with_error!(&env, Error::WindowOutOfRange);
         }
         let s = env.storage().instance();
+        if let Some(pool) = &yield_pool {
+            // The pool must list our token; its reserve index keys our position.
+            let reserve = match yield_source::read_reserve(&env, pool, &token) {
+                Ok(r) => r,
+                Err(e) => panic_with_error!(&env, e),
+            };
+            s.set(&DataKey::ReserveIndex, &reserve.config.index);
+            s.set(&DataKey::YieldPool, pool);
+        }
+        s.set(&DataKey::YieldEnabled, &yield_pool.is_some());
+        s.set(&DataKey::LiquidBps, &DEFAULT_LIQUID_BPS);
+        s.set(&DataKey::BuyerYieldBps, &DEFAULT_BUYER_YIELD_BPS);
+        s.set(&DataKey::ProtocolYieldBps, &0u32);
         s.set(&DataKey::Admin, &admin);
         s.set(&DataKey::Token, &token);
-        s.set(&DataKey::FeeBps, &fee_bps);
+        s.set(&DataKey::Treasury, &treasury);
         s.set(&DataKey::DisputeWindow, &dispute_window);
-        s.set(&DataKey::Pool, &0i128);
-        s.set(&DataKey::PoolCapBps, &DEFAULT_POOL_CAP_BPS);
         s.set(&DataKey::NextId, &0u64);
         bump_instance(&env);
     }
 
     // ----------------------------------------------------------------- admin
     //
-    // What the admin can do is deliberately narrow: tune the fee (capped), the dispute window for
-    // *new* campaigns (bounded), the pool cap, and the verifier allowlist. It can never move
-    // money, change a live campaign, or replace a campaign's verifier.
-
-    pub fn set_fee(env: Env, fee_bps: u32) -> Result<(), Error> {
-        admin(&env).require_auth();
-        if fee_bps > MAX_FEE_BPS {
-            return Err(Error::FeeTooHigh);
-        }
-        env.storage().instance().set(&DataKey::FeeBps, &fee_bps);
-        bump_instance(&env);
-        Ok(())
-    }
+    // What the admin can do is deliberately narrow: the dispute window for *new* campaigns
+    // (bounded), the verifier allowlist, verified sellers, and yield settings (pause new deposits,
+    // the idle buffer, the split for *new* campaigns, pulling everything back from the pool). It
+    // can never move money anywhere but between the contract and its fixed pool, change a live
+    // campaign, or replace a campaign's verifier.
 
     /// Dispute window for campaigns created from now on. Existing campaigns keep theirs.
     pub fn set_dispute_window(env: Env, seconds: u64) -> Result<(), Error> {
@@ -409,17 +535,6 @@ impl Despensa {
         env.storage()
             .instance()
             .set(&DataKey::DisputeWindow, &seconds);
-        bump_instance(&env);
-        Ok(())
-    }
-
-    /// Max share of the guarantee pool a single default may use (bps, up to 100%).
-    pub fn set_pool_cap(env: Env, bps: u32) -> Result<(), Error> {
-        admin(&env).require_auth();
-        if bps as i128 > BPS {
-            return Err(Error::InvalidInput);
-        }
-        env.storage().instance().set(&DataKey::PoolCapBps, &bps);
         bump_instance(&env);
         Ok(())
     }
@@ -441,6 +556,111 @@ impl Despensa {
         bump_instance(&env);
         VerifierSet { verifier, allowed }.publish(&env);
         Ok(())
+    }
+
+    /// Marks a seller as identity-verified (or revokes it). The check itself (CI, NIT or co-op
+    /// membership) happens off-chain; only the flag is stored. Callable by the admin or an
+    /// allowlisted verifier. Revoking blocks new advances; advances already paid are unaffected.
+    pub fn set_seller_verified(
+        env: Env,
+        caller: Address,
+        seller: Address,
+        verified: bool,
+    ) -> Result<(), Error> {
+        caller.require_auth();
+        if caller != admin(&env) && !is_allowed_verifier(&env, &caller) {
+            return Err(Error::VerifierNotAllowed);
+        }
+        if caller == seller {
+            return Err(Error::SelfDealing);
+        }
+        let key = DataKey::SellerVerified(seller.clone());
+        if verified {
+            env.storage().persistent().set(&key, &true);
+            env.storage()
+                .persistent()
+                .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND);
+        } else {
+            env.storage().persistent().remove(&key);
+        }
+        bump_instance(&env);
+        SellerVerified {
+            seller,
+            verified,
+            by: caller,
+        }
+        .publish(&env);
+        Ok(())
+    }
+
+    /// Pauses or resumes new deposits into the (fixed) lending pool, and sets the share of all
+    /// money kept idle in the contract (`MIN_LIQUID_BPS..=100%`). Moves no money.
+    pub fn set_yield(env: Env, enabled: bool, liquid_bps: u32) -> Result<(), Error> {
+        admin(&env).require_auth();
+        if !(MIN_LIQUID_BPS as i128..=BPS).contains(&(liquid_bps as i128)) {
+            return Err(Error::InvalidInput);
+        }
+        let s = env.storage().instance();
+        if enabled && !s.has(&DataKey::YieldPool) {
+            return Err(Error::InvalidInput);
+        }
+        s.set(&DataKey::YieldEnabled, &enabled);
+        s.set(&DataKey::LiquidBps, &liquid_bps);
+        bump_instance(&env);
+        yield_changed(&env);
+        Ok(())
+    }
+
+    /// Yield split for campaigns created from now on: the buyer's and Ayni's share of a delivered
+    /// unit's yield (Ayni's at most `MAX_PROTOCOL_YIELD_BPS`). Refund and bond yield always go
+    /// in full to the buyer or the bond provider.
+    pub fn set_yield_split(env: Env, buyer_bps: u32, protocol_bps: u32) -> Result<(), Error> {
+        admin(&env).require_auth();
+        check_split(buyer_bps, protocol_bps)?;
+        let s = env.storage().instance();
+        s.set(&DataKey::BuyerYieldBps, &buyer_bps);
+        s.set(&DataKey::ProtocolYieldBps, &protocol_bps);
+        bump_instance(&env);
+        yield_changed(&env);
+        Ok(())
+    }
+
+    /// Pulls the whole position back from the lending pool into this contract and pauses new
+    /// deposits. Returns the amount that came back.
+    pub fn exit_yield(env: Env) -> Result<i128, Error> {
+        admin(&env).require_auth();
+        let mut v = Vault::load(&env)?;
+        let got = v.exit(&env)?;
+        v.save(&env);
+        env.storage()
+            .instance()
+            .set(&DataKey::YieldEnabled, &false);
+        bump_instance(&env);
+        yield_changed(&env);
+        Rebalanced {
+            moved: -got,
+            idle: v.idle,
+            invested: v.source.value(),
+        }
+        .publish(&env);
+        Ok(got)
+    }
+
+    /// Anyone can move money between idle and the pool toward the liquidity target.
+    pub fn rebalance(env: Env) -> Result<i128, Error> {
+        let mut v = Vault::load(&env)?;
+        let moved = v.rebalance(&env)?;
+        v.save(&env);
+        bump_instance(&env);
+        if moved != 0 {
+            Rebalanced {
+                moved,
+                idle: v.idle,
+                invested: v.source.value(),
+            }
+            .publish(&env);
+        }
+        Ok(moved)
     }
 
     /// Step 1 of an admin handover. Nothing changes until `new_admin` calls `accept_admin`,
@@ -466,21 +686,10 @@ impl Despensa {
         Ok(())
     }
 
-    /// Anyone (the platform, NGOs, donors) can top up the guarantee pool.
-    pub fn fund_pool(env: Env, from: Address, amount: i128) -> Result<(), Error> {
-        from.require_auth();
-        if amount <= 0 {
-            return Err(Error::InvalidInput);
-        }
-        token_client(&env).transfer(&from, &env.current_contract_address(), &amount);
-        set_pool(&env, pool(&env) + amount);
-        bump_instance(&env);
-        Ok(())
-    }
-
     // -------------------------------------------------------------- producer
 
-    /// Creates a pre-sale. Advances (sum of milestone bps) are capped by the seller's tier.
+    /// Creates a pre-sale. Advances (milestones) need an identity-verified seller and are capped
+    /// by the seller's tier. Anyone can sell pay-on-delivery only, without milestones.
     /// The verifier must be on the admin's allowlist: a seller cannot appoint a friend.
     pub fn create_campaign(
         env: Env,
@@ -509,6 +718,9 @@ impl Despensa {
         }
         if input.title.len() > MAX_TITLE_LEN || input.metadata_uri.len() > MAX_URI_LEN {
             return Err(Error::TooLong);
+        }
+        if !input.milestones.is_empty() && !is_seller_verified(&env, &seller) {
+            return Err(Error::NotVerified);
         }
 
         let tier = tier_for(&get_rep(&env, &seller));
@@ -563,6 +775,14 @@ impl Despensa {
             bond_slashed: 0,
             refund_per_unit: 0,
             created_at: now,
+            escrow_shares: 0,
+            bond_shares: 0,
+            bond_shares_posted: 0,
+            bond_left: 0,
+            buyer_yield_bps: inst_u32(&env, &DataKey::BuyerYieldBps, DEFAULT_BUYER_YIELD_BPS),
+            protocol_yield_bps: inst_u32(&env, &DataKey::ProtocolYieldBps, 0),
+            yield_paid: 0,
+            yield_loss: 0,
         };
         save_campaign(&env, &c);
         CampaignCreated {
@@ -576,6 +796,7 @@ impl Despensa {
     }
 
     /// The seller or any guarantor ("aval solidario") locks a bond behind the campaign.
+    /// While it waits it earns yield for whoever posted it.
     pub fn add_bond(env: Env, id: u64, provider: Address, amount: i128) -> Result<(), Error> {
         provider.require_auth();
         if amount <= 0 {
@@ -585,9 +806,19 @@ impl Despensa {
         if c.status != Status::Funding && c.status != Status::Active {
             return Err(Error::WrongStatus);
         }
+        let mut v = Vault::load(&env)?;
         token_client(&env).transfer(&provider, &env.current_contract_address(), &amount);
-        save_bond(&env, id, &provider, get_bond(&env, id, &provider) + amount);
+        let shares = v.mint(amount);
+        let mut b = get_bond(&env, id, &provider);
+        b.principal += amount;
+        b.shares += shares;
+        save_bond(&env, id, &provider, &b);
         c.bond_total += amount;
+        c.bond_left += amount;
+        c.bond_shares += shares;
+        c.bond_shares_posted += shares;
+        v.invest_excess(&env);
+        v.save(&env);
         save_campaign(&env, &c);
         BondPosted {
             id,
@@ -624,7 +855,10 @@ impl Despensa {
         c.seller.require_auth();
         match c.status {
             Status::Funding => fail(&env, &mut c),
-            Status::Active => default_campaign(&env, &mut c),
+            Status::Active => {
+                let v = Vault::load(&env)?;
+                default_campaign(&env, &v, &mut c)
+            }
             _ => return Err(Error::WrongStatus),
         }
         save_campaign(&env, &c);
@@ -652,11 +886,15 @@ impl Despensa {
         Ok(())
     }
 
-    /// Verifier approves a milestone -> advance released to the seller, if the bond covers it.
+    /// Verifier approves a milestone -> advance released to the seller, if the bond covers it
+    /// and the seller is still verified.
     pub fn approve_milestone(env: Env, id: u64, index: u32) -> Result<i128, Error> {
         let mut c = get_campaign(&env, id)?;
         c.verifier.require_auth();
         require_status(&c, Status::Active)?;
+        if !is_seller_verified(&env, &c.seller) {
+            return Err(Error::NotVerified);
+        }
         let mut m = c.milestones.get(index).ok_or(Error::NotFound)?;
         if m.released {
             return Err(Error::AlreadyReleased);
@@ -674,7 +912,10 @@ impl Despensa {
         c.released_bps += m.bps;
         m.released = true;
         c.milestones.set(index, m);
-        let net = pay_seller(&env, &mut c, gross);
+        let mut v = Vault::load(&env)?;
+        let net = pay_advance(&env, &mut v, &mut c, gross);
+        v.flush(&env)?;
+        v.save(&env);
         save_campaign(&env, &c);
         AdvanceReleased {
             id,
@@ -712,7 +953,7 @@ impl Despensa {
 
     // ----------------------------------------------------------------- buyer
 
-    /// Buy `units` vouchers at the locked price. Money stays in escrow.
+    /// Buy `units` vouchers at the locked price. Money stays in escrow, earning yield.
     pub fn buy(env: Env, id: u64, buyer: Address, units: u32) -> Result<i128, Error> {
         buyer.require_auth();
         if units == 0 {
@@ -729,9 +970,13 @@ impl Despensa {
             return Err(Error::SoldOut);
         }
         let amount = (units as i128) * c.unit_price;
+        let mut v = Vault::load(&env)?;
         token_client(&env).transfer(&buyer, &env.current_contract_address(), &amount);
+        c.escrow_shares += v.mint(amount);
         c.sold += units;
         c.escrow += amount;
+        v.invest_excess(&env);
+        v.save(&env);
 
         let mut h = get_holding(&env, id, &buyer);
         h.units += units;
@@ -757,7 +1002,14 @@ impl Despensa {
     }
 
     /// Gift or pass vouchers to someone else (e.g. family abroad buys for parents in Bolivia).
-    pub fn transfer_units(env: Env, id: u64, from: Address, to: Address, units: u32) -> Result<(), Error> {
+    /// The yield goes with the vouchers.
+    pub fn transfer_units(
+        env: Env,
+        id: u64,
+        from: Address,
+        to: Address,
+        units: u32,
+    ) -> Result<(), Error> {
         from.require_auth();
         if units == 0 || from == to {
             return Err(Error::InvalidInput);
@@ -782,7 +1034,8 @@ impl Despensa {
     }
 
     /// Buyer confirms reception (e.g. scanning the producer's QR at the pickup point).
-    /// Pays the producer immediately. Confirms pending units first.
+    /// Pays the producer immediately, and the buyer its share of the yield. Confirms pending
+    /// units first.
     pub fn confirm_delivery(env: Env, id: u64, buyer: Address, units: u32) -> Result<i128, Error> {
         buyer.require_auth();
         if units == 0 {
@@ -801,8 +1054,11 @@ impl Despensa {
         if h.pending == 0 {
             h.disputed = false;
         }
-        let net = deliver(&env, &mut c, &buyer, &mut h, units);
-        complete_if_done(&env, &mut c);
+        let mut v = Vault::load(&env)?;
+        let net = deliver(&env, &mut v, &mut c, &buyer, &mut h, units);
+        complete_if_done(&env, &mut v, &mut c);
+        v.flush(&env)?;
+        v.save(&env);
         save_holding(&env, id, &buyer, &h);
         save_campaign(&env, &c);
         Ok(net)
@@ -845,8 +1101,11 @@ impl Despensa {
         let units = h.pending;
         h.pending = 0;
         c.pending -= units;
-        let net = deliver(&env, &mut c, &buyer, &mut h, units);
-        complete_if_done(&env, &mut c);
+        let mut v = Vault::load(&env)?;
+        let net = deliver(&env, &mut v, &mut c, &buyer, &mut h, units);
+        complete_if_done(&env, &mut v, &mut c);
+        v.flush(&env)?;
+        v.save(&env);
         save_holding(&env, id, &buyer, &h);
         save_campaign(&env, &c);
         Ok(net)
@@ -881,7 +1140,8 @@ impl Despensa {
         Ok(())
     }
 
-    /// Refund for failed or defaulted campaigns.
+    /// Refund for failed or defaulted campaigns: the buyer's share of what is in escrow, with
+    /// all of its yield. Returns the amount paid.
     pub fn claim_refund(env: Env, id: u64, buyer: Address) -> Result<i128, Error> {
         buyer.require_auth();
         let mut c = get_campaign(&env, id)?;
@@ -893,16 +1153,26 @@ impl Despensa {
         if units == 0 {
             return Err(Error::NothingToClaim);
         }
-        let amount = (units as i128) * c.refund_per_unit;
+        let mut v = Vault::load(&env)?;
+        let outstanding = (c.sold - c.delivered - c.refunded) as i128;
+        let principal = portion(c.escrow, units as i128, outstanding);
+        let shares = portion(c.escrow_shares, units as i128, outstanding);
+        c.escrow -= principal;
+        c.escrow_shares -= shares;
+        let amount = v.burn(shares);
+        v.pay(&buyer, amount);
+        record_loss(&env, &mut c, principal - amount);
+        record_yield(&env, &mut c, &buyer, amount - principal, YieldKind::Buyer);
+        if amount > principal {
+            h.yield_paid += amount - principal;
+        }
+        v.flush(&env)?;
+        v.save(&env);
         h.units = 0;
         h.pending = 0;
         h.disputed = false;
         h.refunded += units;
         c.refunded += units;
-        c.escrow -= amount;
-        if amount > 0 {
-            token_client(&env).transfer(&env.current_contract_address(), &buyer, &amount);
-        }
         save_holding(&env, id, &buyer, &h);
         save_campaign(&env, &c);
         Refunded {
@@ -931,8 +1201,11 @@ impl Despensa {
         h.disputed = false;
         c.pending -= units;
         if delivered {
-            deliver(&env, &mut c, &buyer, &mut h, units);
-            complete_if_done(&env, &mut c);
+            let mut v = Vault::load(&env)?;
+            deliver(&env, &mut v, &mut c, &buyer, &mut h, units);
+            complete_if_done(&env, &mut v, &mut c);
+            v.flush(&env)?;
+            v.save(&env);
         } else {
             h.units += units;
         }
@@ -946,7 +1219,8 @@ impl Despensa {
         let mut c = get_campaign(&env, id)?;
         c.verifier.require_auth();
         require_status(&c, Status::Active)?;
-        default_campaign(&env, &mut c);
+        let v = Vault::load(&env)?;
+        default_campaign(&env, &v, &mut c);
         save_campaign(&env, &c);
         Ok(())
     }
@@ -962,32 +1236,45 @@ impl Despensa {
         if env.ledger().timestamp() < c.delivery_deadline + 2 * c.dispute_window {
             return Err(Error::TooEarly);
         }
+        let mut v = Vault::load(&env)?;
         if c.delivered == c.sold {
-            complete(&env, &mut c);
+            complete(&env, &mut v, &mut c);
+            v.flush(&env)?;
+            v.save(&env);
         } else {
-            default_campaign(&env, &mut c);
+            default_campaign(&env, &v, &mut c);
         }
         save_campaign(&env, &c);
         Ok(c.status)
     }
 
-    /// Bond providers withdraw: 100% if completed/failed, the unslashed share if defaulted.
+    /// Bond providers withdraw, with the yield their bond earned: 100% of the principal if
+    /// completed/failed, the unslashed share if defaulted.
     pub fn withdraw_bond(env: Env, id: u64, provider: Address) -> Result<i128, Error> {
         provider.require_auth();
-        let c = get_campaign(&env, id)?;
-        let bond = get_bond(&env, id, &provider);
-        if bond == 0 {
+        let mut c = get_campaign(&env, id)?;
+        let b = get_bond(&env, id, &provider);
+        if b.principal == 0 && b.shares == 0 {
             return Err(Error::NothingToClaim);
         }
-        let amount = match c.status {
-            Status::Completed | Status::Failed => bond,
-            Status::Defaulted => bond * (c.bond_total - c.bond_slashed) / c.bond_total,
+        let principal = match c.status {
+            Status::Completed | Status::Failed => b.principal,
+            Status::Defaulted => b.principal * (c.bond_total - c.bond_slashed) / c.bond_total,
             _ => return Err(Error::WrongStatus),
         };
-        save_bond(&env, id, &provider, 0);
-        if amount > 0 {
-            token_client(&env).transfer(&env.current_contract_address(), &provider, &amount);
-        }
+        let mut v = Vault::load(&env)?;
+        let shares = portion(c.bond_shares, b.shares, c.bond_shares_posted);
+        c.bond_shares -= shares;
+        c.bond_shares_posted -= b.shares;
+        c.bond_left -= principal;
+        let amount = v.burn(shares);
+        v.pay(&provider, amount);
+        record_loss(&env, &mut c, principal - amount);
+        record_yield(&env, &mut c, &provider, amount - principal, YieldKind::Bond);
+        v.flush(&env)?;
+        v.save(&env);
+        save_bond(&env, id, &provider, &BondPos::default());
+        save_campaign(&env, &c);
         Ok(amount)
     }
 
@@ -998,16 +1285,68 @@ impl Despensa {
         Config {
             admin: s.get(&DataKey::Admin).unwrap(),
             token: s.get(&DataKey::Token).unwrap(),
-            fee_bps: s.get(&DataKey::FeeBps).unwrap_or(0),
+            treasury: s.get(&DataKey::Treasury).unwrap(),
             dispute_window: s.get(&DataKey::DisputeWindow).unwrap_or(0),
-            pool: s.get(&DataKey::Pool).unwrap_or(0),
-            pool_cap_bps: pool_cap_bps(&env),
             campaigns: s.get(&DataKey::NextId).unwrap_or(0),
         }
     }
 
+    pub fn yield_config(env: Env) -> Result<YieldConfig, Error> {
+        let v = Vault::load(&env)?;
+        Ok(YieldConfig {
+            pool: env.storage().instance().get(&DataKey::YieldPool),
+            enabled: vault::yield_enabled(&env),
+            liquid_bps: vault::liquid_bps(&env),
+            buyer_yield_bps: inst_u32(&env, &DataKey::BuyerYieldBps, DEFAULT_BUYER_YIELD_BPS),
+            protocol_yield_bps: inst_u32(&env, &DataKey::ProtocolYieldBps, 0),
+            idle: v.idle,
+            invested: v.source.value(),
+            total_shares: v.shares,
+            yield_paid: inst_i128(&env, &DataKey::YieldPaid),
+            yield_loss: inst_i128(&env, &DataKey::YieldLoss),
+        })
+    }
+
+    /// Everything the contract holds for its users: idle tokens plus the pool position's value.
+    pub fn total_value(env: Env) -> Result<i128, Error> {
+        Ok(Vault::load(&env)?.total())
+    }
+
+    pub fn campaign_value(env: Env, id: u64) -> Result<CampaignValue, Error> {
+        let c = get_campaign(&env, id)?;
+        let v = Vault::load(&env)?;
+        Ok(CampaignValue {
+            escrow: c.escrow,
+            escrow_value: v.value_of(c.escrow_shares),
+            bond: c.bond_left,
+            bond_value: v.value_of(c.bond_shares),
+        })
+    }
+
+    /// Yield the buyer's vouchers (not yet delivered or refunded) have earned so far and would
+    /// get today: `buyer_yield_bps` of it while the campaign runs, all of it after a failure or
+    /// default. Negative if the pool lost money on a refund. Yield already paid is in
+    /// `holding(id, buyer).yield_paid`.
+    pub fn holding_yield(env: Env, id: u64, buyer: Address) -> Result<i128, Error> {
+        let c = get_campaign(&env, id)?;
+        let h = get_holding(&env, id, &buyer);
+        let v = Vault::load(&env)?;
+        let (principal, value) = holding_value(&v, &c, h.units + h.pending);
+        let y = value - principal;
+        Ok(match c.status {
+            Status::Funding | Status::Active if y > 0 => y * c.buyer_yield_bps as i128 / BPS,
+            Status::Funding | Status::Active => 0,
+            Status::Failed | Status::Defaulted => y,
+            Status::Completed => 0,
+        })
+    }
+
     pub fn is_verifier(env: Env, verifier: Address) -> bool {
         is_allowed_verifier(&env, &verifier)
+    }
+
+    pub fn is_seller_verified(env: Env, seller: Address) -> bool {
+        is_seller_verified(&env, &seller)
     }
 
     pub fn pending_admin(env: Env) -> Option<Address> {
@@ -1022,8 +1361,9 @@ impl Despensa {
         get_holding(&env, id, &buyer)
     }
 
+    /// Bond principal a provider posted (and has not withdrawn).
     pub fn bond_of(env: Env, id: u64, provider: Address) -> i128 {
-        get_bond(&env, id, &provider)
+        get_bond(&env, id, &provider).principal
     }
 
     pub fn reputation(env: Env, seller: Address) -> Reputation {

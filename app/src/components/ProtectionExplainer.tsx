@@ -1,30 +1,27 @@
 "use client";
 
-import { ChevronDown, Lock, PackageCheck, RotateCcw, ShieldCheck, type LucideIcon } from "lucide-react";
+import { ChevronDown, Lock, PackageCheck, RotateCcw, ShieldCheck, Sprout, type LucideIcon } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import type { CategoryDef } from "@/catalog";
+import { config } from "@/lib/config";
 import type { Campaign } from "@/lib/despensa";
 import { formatDate, formatDuration, formatPct, formatQty } from "@/lib/format";
-import { PoolIcon } from "./icons";
 import { Money } from "./Money";
 import { Term } from "./ui";
 
 /**
  * "Cómo está protegido tu dinero", with this campaign's real numbers. Refund conditions, time limits
- * and advances are risks, so they stay visible; only the refund order is behind a disclosure.
- * `pool` is the share of the guarantee pool one default may use (pool x pool_cap_bps).
- * The wording is the reference for every shorter protection line in the app (cards, sheet, previews):
- * the 100% is promised only for a sale that doesn't reach its minimum.
+ * and advances are risks, so they stay visible; the refund order and the lending-pool risk are behind
+ * disclosures. The wording is the reference for every shorter protection line in the app (cards,
+ * sheet, previews). Never "garantizado" or "sin riesgo": the lending pool itself can lose money.
  */
 export function ProtectionExplainer({
   c,
   category,
-  pool,
   disputeWindow,
 }: {
   c: Campaign;
   category: CategoryDef;
-  pool?: bigint;
   disputeWindow?: bigint;
 }) {
   const advanceBps = c.milestones.reduce((s, m) => s + m.bps, 0);
@@ -53,19 +50,21 @@ export function ProtectionExplainer({
             icon: ShieldCheck,
             body: (
               <>
-                <b>Hasta {formatPct(advanceBps)} puede adelantarse</b> al productor antes de entregar, solo si el{" "}
-                <Term k="verificador">verificador</Term> aprueba la evidencia y con un <Term k="aval">aval</Term> del {formatPct(c.bond_cover_bps)} de
-                lo adelantado.
+                <b>Hasta {formatPct(advanceBps)} puede adelantarse</b> al productor antes de entregar: solo a productores con identidad
+                verificada, solo si el <Term k="verificador">verificador</Term> aprueba la evidencia, y con un <Term k="aval">aval</Term> que
+                cubre el {formatPct(c.bond_cover_bps)} de lo adelantado.
               </>
             ),
           },
         ]
       : []),
     {
-      icon: PoolIcon,
+      icon: Sprout,
       body: (
         <>
-          <b>Un fondo común ayuda a cubrir reembolsos</b> si un productor no cumple. Lo forma una parte de cada cobro de todos los productores.
+          <b>Tu pago gana mientras espera.</b> Cuando recibes, te llevas el {formatPct(c.buyer_yield_bps)} de lo que ganó tu pago; si se te
+          devuelve, te llevas todo. Sin comisión para ti.
+          {config.network === "testnet" && <> En esta versión de prueba es un <Term k="rendimiento">rendimiento de prueba</Term>.</>}
         </>
       ),
     },
@@ -99,14 +98,13 @@ export function ProtectionExplainer({
           <ChevronDown className="size-5 transition group-open:rotate-180" aria-hidden />
         </summary>
         <p className="mt-2 text-ink-2">
-          Se te devuelve lo que no recibiste, en este orden, hasta cubrir el precio que pagaste. Si después de un adelanto no alcanza, el
-          reembolso puede ser menor al 100%:
+          Se te devuelve lo que no recibiste, en este orden, hasta cubrir el precio que pagaste. Como el aval cubre cada adelanto, alcanza para
+          el precio completo:
         </p>
         <ol className="mt-3 divide-y divide-line">
           {[
-            { label: "Lo que queda en custodia", amount: c.escrow },
-            { label: <Term k="aval">El aval del productor</Term>, amount: c.bond_total - c.bond_slashed },
-            { label: <Term k="fondo">El fondo común (tope por caso)</Term>, amount: pool },
+            { label: "Tu pago en custodia", amount: c.escrow },
+            { label: <Term k="aval">El aval del productor</Term>, amount: c.bond_left },
           ].map((l, i) => (
             <li key={i} className="flex items-center justify-between gap-3 py-2.5">
               <span>
@@ -121,6 +119,16 @@ export function ProtectionExplainer({
           ))}
         </ol>
         <p className="mt-2 mb-3 text-ink-2">Además, el productor pierde su racha y baja de nivel: la próxima vez no podrá recibir adelantos.</p>
+      </details>
+      <details className="group rounded-md bg-surface-2 px-4 py-1">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 font-bold">
+          Más detalles
+          <ChevronDown className="size-5 transition group-open:rotate-180" aria-hidden />
+        </summary>
+        <p className="mt-2 mb-3 text-ink-2">
+          Mientras espera, el dinero se presta en un servicio de préstamos de Stellar. Si ese servicio perdiera dinero, los pagos y los
+          reembolsos bajarían en la misma proporción para todos, y lo verías en esta página.
+        </p>
       </details>
     </section>
   );

@@ -3,18 +3,19 @@
 // Renders Action[] from lib/actions.ts. Components never decide what is allowed: they show what
 // nextActions returned, collect the inputs the action asks for, and submit argsFor(...).
 
-import { CircleAlert, Lock, Minus, PackageCheck, Plus, RotateCcw, Scale, Star, TriangleAlert } from "lucide-react";
+import { CircleAlert, Lock, Minus, PackageCheck, Plus, RotateCcw, Scale, Sprout, Star, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import type { CategoryDef } from "@/catalog";
 import { argsFor, requiredBondFor, successMessage, type Action, type ActionValues } from "@/lib/actions";
+import { config } from "@/lib/config";
 import { isValidAddress, toAmount, type Campaign } from "@/lib/despensa";
-import { CURRENCY, decimalsFor, formatBs, formatMoney, formatPct, formatQty } from "@/lib/format";
-import { invalidateCampaign, useContractConfig } from "@/lib/hooks";
+import { CURRENCY, decimalsFor, formatBs, formatMoney, formatQty } from "@/lib/format";
+import { invalidateCampaign } from "@/lib/hooks";
 import { KNOWN_VERIFIERS } from "@/lib/verifiers";
 import { Money } from "./Money";
 import { useToast } from "./Toast";
-import { AffixInput, BUSY_LABEL, Dialog, Field, MoneyBox, Notice, Spinner, SummaryRow, TxSteps } from "./ui";
+import { AffixInput, BUSY_LABEL, Dialog, Field, MoneyBox, Notice, Spinner, SummaryRow, Term, TxSteps } from "./ui";
 import { READ_ONLY_ID, useAction, useWallet } from "./Wallet";
 
 const BPS = BigInt(10_000);
@@ -162,7 +163,6 @@ export function ActionDialog({
   const { address, connect } = useWallet();
   const tx = useAction();
   const toast = useToast();
-  const cfg = useContractConfig();
   const step = Math.max(1, category.unit.step);
   const [units, setUnits] = useState(initial.units ?? (a.input === "units" && a.id !== "buy" ? a.maxUnits ?? step : step));
   const [addr, setAddr] = useState(initial.address ?? "");
@@ -235,7 +235,6 @@ export function ActionDialog({
   const isBuy = a.id === "buy";
   const decimals = decimalsFor(category);
   const total = c.unit_price * BigInt(units);
-  const feePct = cfg.data ? formatPct(cfg.data.fee_bps) : null;
   const verifierName = KNOWN_VERIFIERS.find((v) => v.address === c.verifier)?.name ?? `el verificador (${category.verifierLabel.toLowerCase()})`;
   const title = isBuy ? "Confirma tu reserva" : a.id === "dispute" ? "¿Abrir una disputa?" : alert ? `¿${a.label}?` : a.label;
   const close = () => {
@@ -372,9 +371,7 @@ export function ActionDialog({
                 </>
               }
             />
-            <p className="t-detail text-ink-2">
-              Sin comisión para ti.{feePct && <> El {feePct} que va al fondo común lo paga el productor cuando cobra.</>}
-            </p>
+            <p className="t-detail text-ink-2">Sin comisión, ni para ti ni para el productor.</p>
             <MoneyBox
               lines={[
                 {
@@ -388,7 +385,16 @@ export function ActionDialog({
                 { icon: RotateCcw, text: "Si no se llega al mínimo, vuelve a ti completo." },
                 {
                   icon: PackageCheck,
-                  text: "Si sigue adelante, el productor cobra cuando confirmas que recibiste. Si no cumple, se te devuelve hasta lo que pagaste: de la custodia, de su aval y del fondo común.",
+                  text: "Si sigue adelante, el productor cobra cuando confirmas que recibiste. Si no cumple, se te devuelve desde tu pago en custodia y luego su aval, que cubre todo adelanto.",
+                },
+                {
+                  icon: Sprout,
+                  text: (
+                    <>
+                      Mientras espera, tu pago gana <Term k="rendimiento">rendimiento</Term>
+                      {config.network === "testnet" ? " (de prueba)" : ""}: al recibir te llevas tu parte; si se te devuelve, todo.
+                    </>
+                  ),
                 },
               ]}
             />

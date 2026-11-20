@@ -2,6 +2,7 @@
 
 import { Scale } from "lucide-react";
 import type { CategoryDef } from "@/catalog";
+import { config } from "@/lib/config";
 import { formatDuration, formatQty } from "@/lib/format";
 import { VoucherPill } from "./badges";
 import { Money } from "./Money";
@@ -18,7 +19,7 @@ export function HandoffStatus({
   category,
   unitPrice,
   releasedBps,
-  feeBps,
+  sellerYield,
   verifier,
   windowLeft,
 }: {
@@ -27,26 +28,29 @@ export function HandoffStatus({
   category: CategoryDef;
   unitPrice: bigint;
   releasedBps: number;
-  feeBps: number;
+  /** The seller's share of this delivery's yield, from the contract's yield_paid event (undefined: still reading). */
+  sellerYield?: bigint | null;
   verifier: string;
   windowLeft: number | null;
 }) {
   const confirmed = h.delivered - watch.delivered;
   if (confirmed > 0) {
-    // Same arithmetic as the contract: the unpaid share of the price, minus the fee for the pool.
+    // Same arithmetic as the contract: the unpaid share of the price. There is no fee.
     const gross = (BigInt(confirmed) * unitPrice * BigInt(10_000 - releasedBps)) / BigInt(10_000);
-    const net = gross - (gross * BigInt(feeBps)) / BigInt(10_000);
     return (
       <div className="flex flex-col items-center gap-3 rounded-lg bg-success-soft p-5 text-center" role="status" aria-live="polite">
         <Puntada className="size-16" />
         <MoneyStatus state="completed" />
         <p className="t-title-1">
-          Cobraste <Money amount={net} category={category} size="lg" showBs={false} />
+          Cobraste <Money amount={gross} category={category} size="lg" showBs={false} />
         </p>
-        <p className="text-ink-2">
-          El comprador confirmó que recibió {formatQty(confirmed, category)}. El dinero ya está en tu cuenta (el {(feeBps / 100).toLocaleString("es-BO")}% fue al
-          fondo común).
-        </p>
+        {sellerYield !== undefined && sellerYield !== null && sellerYield > BigInt(0) && (
+          <p className="font-bold text-ink">
+            + <Money amount={sellerYield} category={category} size="sm" showBs={false} /> de{" "}
+            {config.network === "testnet" ? "rendimiento de prueba" : "rendimiento"} mientras esperaba
+          </p>
+        )}
+        <p className="text-ink-2">El comprador confirmó que recibió {formatQty(confirmed, category)}. El dinero ya está en tu cuenta, sin comisión.</p>
       </div>
     );
   }

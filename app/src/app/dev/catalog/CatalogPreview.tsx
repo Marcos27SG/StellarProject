@@ -22,7 +22,7 @@ const TIER_MAX = [0, 2000, 3000, 4000, 5000];
 
 const PRODUCER: ProducerStats = {
   rep: { completed: 2, defaulted: 0, units_delivered: 340, units_refunded: 0, streak: 2, best_streak: 2, rating_sum: 23, rating_count: 5 },
-  tier: { tier: 2, max_advance_bps: 3000, bond_cover_bps: 5000 },
+  tier: { tier: 2, max_advance_bps: 3000, bond_cover_bps: 10_000 },
 };
 
 function sampleValue(f: CategoryDef["attributes"][number]): string | number | boolean {
@@ -72,6 +72,14 @@ function sample(cat: CategoryDef, i: number, now: bigint): { c: Campaign; meta: 
     bond_slashed: BigInt(0),
     refund_per_unit: BigInt(0),
     created_at: now - 2n * DAY,
+    escrow_shares: 0n,
+    bond_shares: 0n,
+    bond_shares_posted: 0n,
+    bond_left: 0n,
+    buyer_yield_bps: 5000,
+    protocol_yield_bps: 0,
+    yield_paid: 0n,
+    yield_loss: 0n,
   };
   const meta: CampaignMetadata = {
     schema: METADATA_SCHEMA_V1,
@@ -110,7 +118,7 @@ export default function CatalogPreview() {
           const sumPct = cat.milestoneTemplates.reduce((s, t) => s + t.suggestedPct, 0);
           const okTiers = TIER_MAX.map((max, t) => (max >= sumPct * 100 ? TIER_LABEL[t] : null)).filter(Boolean);
           const buyer = nextActions(c, null, "buyer", now, { category: cat });
-          const holder: Holding = { units: 2, pending: 0, pending_since: 0n, disputed: false, delivered: 0, refunded: 0, rated: false };
+          const holder: Holding = { units: 2, pending: 0, pending_since: 0n, disputed: false, delivered: 0, refunded: 0, rated: false, yield_paid: 0n };
           const active = nextActions({ ...c, status: { tag: "Active" } }, holder, "buyer", now, { category: cat });
           return (
             <section key={cat.id} id={cat.id} className="space-y-4 border-t border-line pt-8">
@@ -202,7 +210,7 @@ export default function CatalogPreview() {
               <details className="rounded-lg">
                 <summary className="cursor-pointer text-sm text-ink-2">Ver explicación de protecciones</summary>
                 <div className="mt-3">
-                  <ProtectionExplainer c={c} category={cat} pool={toAmount("125")} disputeWindow={3n * DAY} />
+                  <ProtectionExplainer c={c} category={cat} disputeWindow={3n * DAY} />
                 </div>
               </details>
             </section>

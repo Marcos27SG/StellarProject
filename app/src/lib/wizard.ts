@@ -316,6 +316,14 @@ export function previewCampaign(
     bond_slashed: BigInt(0),
     refund_per_unit: BigInt(0),
     created_at: BigInt(nowSeconds),
+    escrow_shares: BigInt(0),
+    bond_shares: BigInt(0),
+    bond_shares_posted: BigInt(0),
+    bond_left: BigInt(0),
+    buyer_yield_bps: 5_000,
+    protocol_yield_bps: 0,
+    yield_paid: BigInt(0),
+    yield_loss: BigInt(0),
   };
 }
 
@@ -324,38 +332,32 @@ export function previewCampaign(
 export interface MoneyFlow {
   /** Everything sold at the cap. */
   gross: bigint;
-  /** Advance paid when every milestone is approved (gross, before the fee). */
+  /** Advance paid when every milestone is approved. */
   advance: bigint;
-  advanceNet: bigint;
-  /** Bond that must be in place before the verifier can approve all milestones. */
+  /** Bond that must be in place before the verifier can approve all milestones (100% of the advance). */
   bondNeeded: bigint;
   /** Paid as buyers confirm delivery. */
-  onDeliveryNet: bigint;
-  totalNet: bigint;
-  fee: bigint;
+  onDelivery: bigint;
+  /** The full price: there is no fee. Yield comes on top and is not projected. */
+  total: bigint;
 }
 
 /**
  * What the producer receives if they sell `units` (default: the cap) and approve every milestone
- * before delivering. Same arithmetic as DESIGN.md §5 (10 L at 1 USDC, 20% milestone, 2% fee -> 9.80).
+ * before delivering. Same arithmetic as DESIGN.md §5.1 (10 L at 1 USDC, 20% milestone -> 10.00).
  */
-export function moneyFlow(d: CampaignDraft, bondCoverBps: number, feeBps: number, units?: number): MoneyFlow {
+export function moneyFlow(d: CampaignDraft, bondCoverBps: number, units?: number): MoneyFlow {
   const BPS = BigInt(10_000);
   const price = parseUsd(d.price) ?? BigInt(0);
   const n = BigInt(units ?? (Number(d.maxUnits) || 0));
   const gross = price * n;
   const advance = (gross * BigInt(advanceBps(d))) / BPS;
-  const net = (x: bigint) => x - (x * BigInt(feeBps)) / BPS;
-  const advanceNet = net(advance);
-  const onDeliveryNet = net(gross - advance);
   return {
     gross,
     advance,
-    advanceNet,
     bondNeeded: (advance * BigInt(bondCoverBps)) / BPS,
-    onDeliveryNet,
-    totalNet: advanceNet + onDeliveryNet,
-    fee: gross - advanceNet - onDeliveryNet,
+    onDelivery: gross - advance,
+    total: gross,
   };
 }
 

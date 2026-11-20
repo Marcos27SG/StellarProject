@@ -39,12 +39,20 @@ function campaign(over: Partial<Campaign> & { tag?: StatusTag } = {}): Campaign 
     bond_slashed: B(0),
     refund_per_unit: B(0),
     created_at: B(T0),
+    escrow_shares: B(0),
+    bond_shares: B(0),
+    bond_shares_posted: B(0),
+    bond_left: B(0),
+    buyer_yield_bps: 5000,
+    protocol_yield_bps: 0,
+    yield_paid: B(0),
+    yield_loss: B(0),
     ...rest,
   };
 }
 
 function holding(over: Partial<Holding> = {}): Holding {
-  return { units: 0, pending: 0, pending_since: B(0), disputed: false, delivered: 0, refunded: 0, rated: false, ...over };
+  return { units: 0, pending: 0, pending_since: B(0), disputed: false, delivered: 0, refunded: 0, rated: false, yield_paid: B(0), ...over };
 }
 
 const ids = (c: Campaign, h: Holding | null, role: Role, now: number, bond?: bigint) =>

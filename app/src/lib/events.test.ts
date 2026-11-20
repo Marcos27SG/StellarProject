@@ -1,7 +1,15 @@
 import { nativeToScVal, rpc, xdr } from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
 import type { Holding } from "./despensa";
-import { campaignEventAddresses, cursorLedger, listPendingDeliveries, startLedgerFor, type EventSource } from "./events";
+import {
+  campaignEventAddresses,
+  cursorLedger,
+  decodeYieldPaid,
+  latestYieldPaid,
+  listPendingDeliveries,
+  startLedgerFor,
+  type EventSource,
+} from "./events";
 
 const B1 = "GALLLWHLW7ZI5MDK6IYEMV7AYRNCWU5SDE4SUTLDA5SF3KCMCTW325MY";
 const B2 = "GCCNUJF362MBLA3RN2G3VH4KDMVTNNPS5M32AL5CFW65H66PIHC3L33P";
@@ -97,7 +105,7 @@ describe("campaignEventAddresses", () => {
 
 describe("listPendingDeliveries", () => {
   const holding = (over: Partial<Holding>): Holding => ({
-    units: 0, pending: 0, pending_since: BigInt(0), disputed: false, delivered: 0, refunded: 0, rated: false, ...over,
+    units: 0, pending: 0, pending_since: BigInt(0), disputed: false, delivered: 0, refunded: 0, rated: false, yield_paid: BigInt(0), ...over,
   });
 
   it("skips the network when nothing is pending", async () => {
@@ -124,5 +132,31 @@ describe("listPendingDeliveries", () => {
       { events: fakeSource([{ events: [event("delivery_marked", 0, B1), event("delivery_marked", 0, B2)], cursorLedger: LATEST }]).src, holding: async (_id, b) => holdings[b] },
     );
     expect(after.map((r) => r.buyer)).toEqual([B2]);
+  });
+});
+
+describe("yield_paid events", () => {
+  it("decodes amount and kind (unit enums come back as a one-element array)", () => {
+    expect(decodeYieldPaid({ amount: BigInt(192_001), kind: ["Seller"] })).toEqual({ amount: BigInt(192_001), kind: "Seller" });
+    expect(decodeYieldPaid({ amount: BigInt(5), kind: "Buyer" })).toEqual({ amount: BigInt(5), kind: "Buyer" });
+    expect(decodeYieldPaid(null)).toBeNull();
+    expect(decodeYieldPaid({ amount: BigInt(1) })).toBeNull();
+  });
+
+  it("returns the latest payment of the requested kind", async () => {
+    const value = (amount: number, kind: string) =>
+      xdr.ScVal.scvMap([
+        new xdr.ScMapEntry({ key: xdr.ScVal.scvSymbol("amount"), val: nativeToScVal(BigInt(amount), { type: "i128" }) }),
+        new xdr.ScMapEntry({ key: xdr.ScVal.scvSymbol("kind"), val: xdr.ScVal.scvVec([xdr.ScVal.scvSymbol(kind)]) }),
+      ]);
+    const events = [value(10, "Seller"), value(3, "Bond"), value(25, "Seller"), value(7, "Bond")].map(
+      (v) => ({ topic: [], value: v }) as unknown as rpc.Api.EventResponse,
+    );
+    const src: EventSource = {
+      getHealth: async () => ({ latestLedger: 1000, oldestLedger: 1 }),
+      getEvents: async () => ({ events, cursor: "", latestLedger: 1000 }) as unknown as rpc.Api.GetEventsResponse,
+    };
+    expect(await latestYieldPaid({ id: BigInt(0), created_at: BigInt(0) }, "GCCNUJF362MBLA3RN2G3VH4KDMVTNNPS5M32AL5CFW65H66PIHC3L33P", "Seller", src)).toBe(BigInt(25));
+    expect(await latestYieldPaid({ id: BigInt(0), created_at: BigInt(0) }, "GCCNUJF362MBLA3RN2G3VH4KDMVTNNPS5M32AL5CFW65H66PIHC3L33P", "Protocol", src)).toBeNull();
   });
 });

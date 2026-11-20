@@ -11,7 +11,7 @@ export const GLOSSARY = {
   },
   aval: {
     term: "Aval",
-    definition: "Dinero que el productor o alguien que confía en él (una cooperativa, su familia) deja como garantía. Si no cumple, se usa para devolverte.",
+    definition: "Dinero que el productor o alguien que confía en él (una cooperativa, su familia) deja como respaldo. Cubre el 100% de cada adelanto: si no cumple, se usa para devolverte. Mientras espera, gana rendimiento para quien lo dejó.",
   },
   verificador: {
     term: "Verificador",
@@ -21,9 +21,13 @@ export const GLOSSARY = {
     term: "Dólares digitales",
     definition: "USDC, un dólar digital estable: 1 USDC vale 1 $us. El precio queda fijo en dólares aunque cambie el boliviano. Esta demo usa USDC de prueba de la testnet, sin valor real.",
   },
-  fondo: {
-    term: "Fondo común",
-    definition: "Un fondo de todos, que se forma con una pequeña parte de cada pago a productores (el porcentaje está en Transparencia). Ayuda a cubrir los reembolsos cuando la custodia y el aval no alcanzan; cada caso puede usar solo una parte del fondo.",
+  rendimiento: {
+    term: "Rendimiento",
+    definition: "Lo que gana tu pago mientras espera la entrega: el contrato lo presta en un servicio de préstamos de Stellar. Cuando recibes, se reparte entre tú y el productor; si se te devuelve, es todo tuyo. Te mostramos lo ganado hasta ahora, nunca una promesa. En la versión de prueba es un rendimiento de prueba.",
+  },
+  verificado: {
+    term: "Productor verificado",
+    definition: "Un verificador revisó su identidad (carnet, NIT o socio de una cooperativa) fuera de la app. Solo los productores verificados pueden pedir adelantos. Los documentos no se guardan en Ayni ni en la cadena: solo la marca de verificado.",
   },
   hito: {
     term: "Hito",

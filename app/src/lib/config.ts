@@ -4,7 +4,7 @@
 export const config = {
   contractId:
     process.env.NEXT_PUBLIC_DESPENSA_CONTRACT_ID ??
-    "CCGR4QPJLH565PVUQMB3HO3O2AKBBVDFITDRWMURPXECFIL22FRV32OJ",
+    "CDDIJ4LNQ3OR2XR5MM36L552FXMBLXXNNJDWJUWA5M57E6LPRRKWG66X",
   rpcUrl: process.env.NEXT_PUBLIC_STELLAR_RPC_URL ?? "https://soroban-testnet.stellar.org",
   networkPassphrase:
     process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE ?? "Test SDF Network ; September 2015",
@@ -20,6 +20,12 @@ export const config = {
   bobPerUsd: Number(process.env.NEXT_PUBLIC_BOB_PER_USD ?? "12"),
   pollarKey: process.env.NEXT_PUBLIC_POLLAR_PUBLISHABLE_KEY ?? "",
   explorer: "https://stellar.expert/explorer/testnet",
+  /**
+   * Where a seller asks for the identity check that unlocks advances (a WhatsApp number and/or an
+   * email of the verifier or of Ayni). The check happens off-chain; the app stores no documents.
+   */
+  verifyWhatsapp: process.env.NEXT_PUBLIC_VERIFY_WHATSAPP ?? "",
+  verifyEmail: process.env.NEXT_PUBLIC_VERIFY_EMAIL ?? "",
   /** Gateway used to read ipfs:// campaign metadata. */
   ipfsGateway: process.env.NEXT_PUBLIC_IPFS_GATEWAY ?? "https://ipfs.io/ipfs/",
 };

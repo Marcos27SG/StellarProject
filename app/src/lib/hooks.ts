@@ -11,20 +11,26 @@ import {
   getBond,
   getBuyerStats,
   getCampaign,
+  getCampaignValue,
   getConfig,
   getHolding,
+  getHoldingYield,
   getReputation,
   getTier,
+  getYieldConfig,
+  isSellerVerified,
   isVerifier,
   listCampaigns,
   type BuyerStats,
   type Campaign,
+  type CampaignValue,
   type ContractConfig,
   type Holding,
   type Reputation,
   type TierInfo,
+  type YieldConfig,
 } from "./despensa";
-import { listPendingDeliveries, type PendingDelivery } from "./events";
+import { latestYieldPaid, listPendingDeliveries, type PendingDelivery } from "./events";
 import { resolveCampaignMetadata, type ResolvedMetadata } from "./metadata";
 
 interface Entry {
@@ -165,6 +171,24 @@ export function useVerifierAllowed(address: string | null) {
   return useQuery<boolean>(address ? `verifier:${address}` : null, () => isVerifier(address!), 60_000);
 }
 
+/** Has a verifier checked this seller's identity? `null` skips the read. */
+export function useSellerVerified(address: string | null) {
+  return useQuery<boolean>(address ? `sellerverified:${address}` : null, () => isSellerVerified(address!), 60_000);
+}
+
+export function useYieldConfig() {
+  return useQuery<YieldConfig>("yield", getYieldConfig, 60_000);
+}
+
+export function useCampaignValue(id: bigint | null) {
+  return useQuery<CampaignValue>(id === null ? null : `value:${id}`, () => getCampaignValue(id!));
+}
+
+/** Yield the buyer's vouchers in campaign `id` have earned for them so far (their share). */
+export function useHoldingYield(id: bigint, address: string | null) {
+  return useQuery<bigint>(address ? `hyield:${id}:${address}` : null, () => getHoldingYield(id, address!));
+}
+
 export function useContractConfig() {
   return useQuery<ContractConfig>("config", getConfig, 60_000);
 }
@@ -233,9 +257,18 @@ export function usePendingDeliveries(c: Campaign | undefined, enabled: boolean) 
   return useQuery<PendingDelivery[]>(on ? `pending:${c!.id}:${c!.pending}` : null, () => listPendingDeliveries(c!), 60_000);
 }
 
+/**
+ * The seller's share of the yield on their latest delivery in `c` (for "Cobraste"). `nonce` (e.g. the
+ * buyer's delivered count) re-reads it after each confirmation.
+ */
+export function useSellerYield(c: Campaign | undefined, enabled: boolean, nonce: number) {
+  const on = !!c && enabled;
+  return useQuery<bigint | null>(on ? `syield:${c!.id}:${nonce}` : null, () => latestYieldPaid(c!, c!.seller, "Seller"), 60_000);
+}
+
 /** Keys a transaction on campaign `id` can change. */
 export function invalidateCampaign(id: bigint) {
-  invalidate(`campaign:${id}`, `holding:${id}:`, `bond:${id}:`, `pending:${id}:`, "campaigns", "producer", "config", "holdings:", "buyer:");
+  invalidate(`campaign:${id}`, `holding:${id}:`, `bond:${id}:`, `pending:${id}:`, `value:${id}`, `hyield:${id}:`, `syield:${id}:`, "campaigns", "producer", "config", "yield", "holdings:", "buyer:");
 }
 
 // ------------------------------------------------------------------ live updates

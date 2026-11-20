@@ -12,7 +12,6 @@ const USDC: i128 = 10_000_000; // 1 USDC, 7 decimals
 const PRICE: i128 = USDC;
 const DAY: u64 = 86_400;
 const WINDOW: u64 = 3 * DAY;
-const FEE: u32 = 200; // 2% of payouts -> guarantee pool
 const START: u64 = 1_000;
 
 struct Setup<'a> {
@@ -21,6 +20,7 @@ struct Setup<'a> {
     token: TokenClient<'a>,
     sac: StellarAssetClient<'a>,
     admin: Address,
+    treasury: Address,
     seller: Address,
     verifier: Address,
 }
@@ -34,15 +34,21 @@ fn setup<'a>() -> Setup<'a> {
     let seller = Address::generate(&env);
     let verifier = Address::generate(&env);
     let issuer = Address::generate(&env);
+    let treasury = Address::generate(&env);
 
     let sac_contract = env.register_stellar_asset_contract_v2(issuer);
     let token_addr = sac_contract.address();
     let token = TokenClient::new(&env, &token_addr);
     let sac = StellarAssetClient::new(&env, &token_addr);
 
-    let contract_id = env.register(Despensa, (admin.clone(), token_addr, FEE, WINDOW));
+    let contract_id = env.register(
+        Despensa,
+        (admin.clone(), token_addr, treasury.clone(), WINDOW, None::<Address>),
+    );
     let client = DespensaClient::new(&env, &contract_id);
     client.set_verifier(&verifier, &true);
+    // Most tests use advances, so the default seller passed the off-chain identity check.
+    client.set_seller_verified(&verifier, &seller, &true);
 
     Setup {
         env,
@@ -50,6 +56,7 @@ fn setup<'a>() -> Setup<'a> {
         token,
         sac,
         admin,
+        treasury,
         seller,
         verifier,
     }
@@ -106,14 +113,14 @@ fn happy_path_advance_then_pay_on_delivery() {
     s.client.buy(&id, &b2, &4);
     assert_eq!(s.client.campaign(&id).status, Status::Active); // sold out
 
-    // Advance: 20% of 10 units, minus 2% fee.
+    // Advance: 20% of 10 units, paid in full (there is no fee).
     s.client.submit_milestone(&id, &0, &evidence(&s.env));
     let net = s.client.approve_milestone(&id, &0);
-    assert_eq!(net, 2 * USDC - 400_000);
+    assert_eq!(net, 2 * USDC);
 
     // Buyer 1 confirms at the pickup point -> remaining 80% of 6 units paid.
     let net = s.client.confirm_delivery(&id, &b1, &6);
-    assert_eq!(net, 48_000_000 - 960_000);
+    assert_eq!(net, 48_000_000);
 
     // Seller marks buyer 2 delivered; paid after the dispute window.
     s.client.mark_delivered(&id, &b2, &4);
@@ -123,7 +130,7 @@ fn happy_path_advance_then_pay_on_delivery() {
     );
     s.env.ledger().set_timestamp(START + WINDOW + 1);
     let net = s.client.finalize_delivery(&id, &b2);
-    assert_eq!(net, 32_000_000 - 640_000);
+    assert_eq!(net, 32_000_000);
 
     let c = s.client.campaign(&id);
     assert_eq!(c.status, Status::Completed);
@@ -131,11 +138,10 @@ fn happy_path_advance_then_pay_on_delivery() {
 
     // Bond comes back in full.
     assert_eq!(s.client.withdraw_bond(&id, &s.seller), 2 * USDC);
-    assert_eq!(s.token.balance(&s.seller), 98_000_000 + 2 * USDC);
+    assert_eq!(s.token.balance(&s.seller), 10 * USDC + 2 * USDC);
 
-    // 2% of everything paid out sits in the guarantee pool.
-    assert_eq!(s.client.config().pool, 2_000_000);
-    assert_eq!(s.token.balance(&s.client.address), 2_000_000);
+    // The seller got every cent of the price; nothing is left behind in the contract.
+    assert_eq!(s.token.balance(&s.client.address), 0);
 
     let rep = s.client.reputation(&s.seller);
     assert_eq!(rep.completed, 1);
@@ -219,100 +225,68 @@ fn producer_vanishes_buyers_refunded_from_escrow_and_bond() {
     s.client
         .create_campaign(&s.seller, &s.verifier, &input(&s.env, 1, 5, Vec::new(&s.env)));
 
-    // Contract holds exactly the guarantee pool (fees), nothing is lost or stuck.
-    assert_eq!(s.token.balance(&s.client.address), s.client.config().pool);
+    // Nothing is lost or stuck in the contract.
+    assert_eq!(s.token.balance(&s.client.address), 0);
 }
 
-#[test]
-fn guarantee_pool_tops_up_refunds_for_trusted_producers() {
-    let s = setup();
-    // A producer with 6 completed campaigns (tier 4): 50% advance, bond covers only 10% of it.
+fn set_completed(s: &Setup, who: &Address, completed: u32) {
     s.env.as_contract(&s.client.address, || {
         s.env.storage().persistent().set(
-            &DataKey::Rep(s.seller.clone()),
+            &DataKey::Rep(who.clone()),
             &Reputation {
-                completed: 6,
-                streak: 6,
-                best_streak: 6,
+                completed,
+                streak: completed,
+                best_streak: completed,
                 ..Default::default()
             },
         );
     });
-    assert_eq!(s.client.tier(&s.seller).tier, 4);
-
-    // A healthy pool: one default may use up to 20% of it.
-    s.sac.mint(&s.admin, &(30 * USDC));
-    s.client.fund_pool(&s.admin, &(30 * USDC));
-
-    let id = s
-        .client
-        .create_campaign(&s.seller, &s.verifier, &input(&s.env, 10, 10, milestones(&s.env, 5_000)));
-    s.sac.mint(&s.seller, &(USDC / 2));
-    s.client.add_bond(&id, &s.seller, &(USDC / 2));
-    let b1 = funded(&s, 5 * USDC);
-    let b2 = funded(&s, 5 * USDC);
-    s.client.buy(&id, &b1, &5);
-    s.client.buy(&id, &b2, &5);
-    s.client.submit_milestone(&id, &0, &evidence(&s.env));
-    s.client.approve_milestone(&id, &0); // 5 USDC advance, 0.1 fee -> pool
-
-    // Verifier detects fraud and declares default early.
-    s.client.declare_default(&id);
-    let c = s.client.campaign(&id);
-    // 10 USDC owed: escrow 5 + bond 0.5 + 4.5 from the pool (under the 20% cap of 30.1).
-    assert_eq!(c.refund_per_unit, PRICE);
-    assert_eq!(s.client.config().pool, 301_000_000 - 45_000_000);
-    assert_eq!(s.client.claim_refund(&id, &b1), 5 * USDC);
-    assert_eq!(s.client.claim_refund(&id, &b2), 5 * USDC);
-    assert_eq!(s.client.withdraw_bond(&id, &s.seller), 0);
-    assert_eq!(s.token.balance(&s.client.address), s.client.config().pool);
 }
 
+/// Default waterfall without a common fund: escrow first, then the bond, and nothing else.
+/// Because every advance is 100% bonded, buyers get the full price back at every tier.
 #[test]
-fn one_default_cannot_empty_the_guarantee_pool() {
+fn default_refunds_come_from_escrow_then_bond_only_and_cover_every_tier() {
     let s = setup();
-    s.env.as_contract(&s.client.address, || {
-        s.env.storage().persistent().set(
-            &DataKey::Rep(s.seller.clone()),
-            &Reputation {
-                completed: 6,
-                ..Default::default()
-            },
-        );
-    });
-    // A small pool: 3 USDC. The shortfall below (4.5) is bigger than the whole pool.
-    s.sac.mint(&s.admin, &(3 * USDC));
-    s.client.fund_pool(&s.admin, &(3 * USDC));
+    for (completed, tier, max_bps) in [(0u32, 1u32, 2_000u32), (1, 2, 3_000), (3, 3, 4_000), (6, 4, 5_000)] {
+        set_completed(&s, &s.seller, completed);
+        let t = s.client.tier(&s.seller);
+        assert_eq!((t.tier, t.max_advance_bps, t.bond_cover_bps), (tier, max_bps, 10_000));
 
-    let id = s
-        .client
-        .create_campaign(&s.seller, &s.verifier, &input(&s.env, 10, 10, milestones(&s.env, 5_000)));
-    s.sac.mint(&s.seller, &(USDC / 2));
-    s.client.add_bond(&id, &s.seller, &(USDC / 2));
-    let b = funded(&s, 10 * USDC);
-    s.client.buy(&id, &b, &10);
-    s.client.submit_milestone(&id, &0, &evidence(&s.env));
-    s.client.approve_milestone(&id, &0); // pool is now 3.1
-    s.client.declare_default(&id);
+        let id = s
+            .client
+            .create_campaign(&s.seller, &s.verifier, &input(&s.env, 10, 10, milestones(&s.env, max_bps)));
+        let advance = 10 * USDC * max_bps as i128 / BPS;
+        // One stroop short of a full bond is not enough.
+        s.sac.mint(&s.seller, &advance);
+        s.client.add_bond(&id, &s.seller, &(advance - 1));
+        let b1 = funded(&s, 5 * USDC);
+        let b2 = funded(&s, 5 * USDC);
+        s.client.buy(&id, &b1, &5);
+        s.client.buy(&id, &b2, &5);
+        s.client.submit_milestone(&id, &0, &evidence(&s.env));
+        assert_eq!(s.client.try_approve_milestone(&id, &0), Err(Ok(Error::BondTooLow)));
+        s.client.add_bond(&id, &s.seller, &1);
+        assert_eq!(s.client.approve_milestone(&id, &0), advance);
 
-    // Only 20% of the pool (0.62) is used: escrow 5 + bond 0.5 + 0.62 = 6.12 for 10 units.
-    let c = s.client.campaign(&id);
-    assert_eq!(c.refund_per_unit, 6_120_000);
-    assert_eq!(s.client.config().pool, 31_000_000 - 6_200_000);
-    assert_eq!(s.client.claim_refund(&id, &b), 61_200_000);
-    assert_eq!(s.token.balance(&s.client.address), s.client.config().pool);
-
-    // The cap is the admin's to tune, within 0..=100%.
-    assert_eq!(s.client.try_set_pool_cap(&10_001), Err(Ok(Error::InvalidInput)));
-    s.client.set_pool_cap(&5_000);
-    assert_eq!(s.client.config().pool_cap_bps, 5_000);
+        // Verifier detects fraud and declares default early.
+        s.client.declare_default(&id);
+        let c = s.client.campaign(&id);
+        // 10 USDC owed: what is left in escrow + the bond. Nothing comes from anywhere else.
+        assert_eq!(c.bond_slashed, advance);
+        assert_eq!(c.refund_per_unit, PRICE);
+        assert_eq!(s.client.claim_refund(&id, &b1), 5 * USDC);
+        assert_eq!(s.client.claim_refund(&id, &b2), 5 * USDC);
+        assert_eq!(s.client.withdraw_bond(&id, &s.seller), 0);
+        assert_eq!(s.token.balance(&s.client.address), 0);
+    }
 }
 
-/// The attack the allowlist and the pool cap exist for: a producer farms reputation with a
-/// second wallet and dust campaigns, then takes a big advance and defaults on purpose, so the
-/// "buyer" (the same person) is refunded from the community's pool.
+/// The old attack on the common fund: a producer farms reputation with a second wallet and dust
+/// campaigns, then takes a big advance and defaults on purpose, so the "buyer" (the same person)
+/// is refunded from everyone else's money. Without a common fund there is nothing to take.
 #[test]
-fn reputation_farming_ring_is_gated_and_its_take_is_capped() {
+fn reputation_farming_ring_is_gated_and_takes_nothing_from_others() {
     let s = setup();
     let accomplice = funded(&s, 200 * USDC);
     let dust = |env: &Env| CampaignInput {
@@ -336,18 +310,21 @@ fn reputation_farming_ring_is_gated_and_its_take_is_capped() {
     }
     assert_eq!(s.client.tier(&s.seller).tier, 4);
 
-    // Honest users' fees have built a 100 USDC pool.
-    s.sac.mint(&s.admin, &(100 * USDC));
-    s.client.fund_pool(&s.admin, &(100 * USDC));
-    let pool_before = s.client.config().pool;
+    // An honest campaign by someone else holds 30 USDC of other people's money.
+    let other_seller = Address::generate(&s.env);
+    let honest = s
+        .client
+        .create_campaign(&other_seller, &s.verifier, &input(&s.env, 30, 30, Vec::new(&s.env)));
+    let neighbour = funded(&s, 30 * USDC);
+    s.client.buy(&honest, &neighbour, &30);
 
-    // The sting: 100 USDC sale, 50% advance, 10% bond. It only goes through if an allowlisted
-    // verifier approves fake evidence (fooled or colluding): that is gate 2, off-chain.
+    // The sting: 100 USDC sale, 50% advance, fully bonded. It only goes through if an
+    // allowlisted verifier approves fake evidence (fooled or colluding): gate 2, off-chain.
     let id = s
         .client
         .create_campaign(&s.seller, &s.verifier, &input(&s.env, 100, 100, milestones(&s.env, 5_000)));
-    s.sac.mint(&s.seller, &(5 * USDC));
-    s.client.add_bond(&id, &s.seller, &(5 * USDC));
+    s.sac.mint(&s.seller, &(50 * USDC));
+    s.client.add_bond(&id, &s.seller, &(50 * USDC));
     s.client.buy(&id, &accomplice, &100);
     s.client.submit_milestone(&id, &0, &evidence(&s.env));
     let advance = s.client.approve_milestone(&id, &0);
@@ -355,14 +332,10 @@ fn reputation_farming_ring_is_gated_and_its_take_is_capped() {
     let refund = s.client.claim_refund(&id, &accomplice);
     let bond_back = s.client.withdraw_bond(&id, &s.seller);
 
-    // Gate 3: even then, the ring takes at most 20% of the pool, not the 45 USDC it is "owed".
-    let pool_after = s.client.config().pool;
-    let fee_paid = 50 * USDC - advance; // the ring's own 2% fee went into the pool first
-    let taken = pool_before + fee_paid - pool_after;
-    assert_eq!(taken, (pool_before + fee_paid) * 2_000 / 10_000);
-    let ring_profit = advance + refund + bond_back - 100 * USDC - 5 * USDC;
-    assert_eq!(ring_profit, taken - fee_paid);
-    assert!(ring_profit < 45 * USDC / 2);
+    // The ring only ever gets its own money back: no profit, and the neighbour's escrow is intact.
+    assert_eq!(advance + refund + bond_back, 100 * USDC + 50 * USDC);
+    assert_eq!(s.client.campaign(&honest).escrow, 30 * USDC);
+    assert_eq!(s.token.balance(&s.client.address), 30 * USDC);
 
     // The six farmed completions do not soften the default: straight to tier 0, and out of it
     // only after three completed campaigns in a row.
@@ -520,6 +493,7 @@ fn campaign_inputs_are_bounded() {
 fn admin_handover_takes_two_steps() {
     let s = setup();
     assert_eq!(s.client.try_accept_admin(), Err(Ok(Error::NoPendingAdmin)));
+    assert_eq!(s.client.config().treasury, s.treasury);
 
     let board = Address::generate(&s.env);
     s.client.propose_admin(&board);
@@ -535,14 +509,14 @@ fn admin_handover_takes_two_steps() {
     assert_eq!(s.client.try_accept_admin(), Err(Ok(Error::NoPendingAdmin)));
 
     // The new admin now signs admin calls.
-    s.client.set_fee(&100);
+    s.client.set_dispute_window(&MIN_DISPUTE_WINDOW);
     assert_eq!(s.env.auths()[0].0, board);
 }
 
-/// What the contract owes right now: every campaign's escrow, the pool, and the bonds that
-/// providers could still withdraw.
+/// What the contract owes right now: every campaign's escrow and the bonds that providers could
+/// still withdraw.
 fn liabilities(s: &Setup, ids: &[u64], bonds: &[(u64, Address)]) -> i128 {
-    let mut total = s.client.config().pool;
+    let mut total = 0;
     for id in ids {
         total += s.client.campaign(id).escrow;
     }
@@ -573,6 +547,7 @@ fn contract_always_holds_what_it_owes() {
     let seller2 = Address::generate(&s.env);
     let seller3 = Address::generate(&s.env);
     s.sac.mint(&seller3, &(10 * USDC));
+    s.client.set_seller_verified(&s.admin, &seller3, &true);
 
     let mut ids: std::vec::Vec<u64> = std::vec::Vec::new();
     let mut bonds: std::vec::Vec<(u64, Address)> = std::vec::Vec::new();
@@ -603,12 +578,12 @@ fn contract_always_holds_what_it_owes() {
     ids.push(b);
     s.client.buy(&b, &b2, &2);
 
-    // C: defaults after an advance; bond and pool cover part of the shortfall.
+    // C: defaults after an advance; the bond covers part of the shortfall.
     let c = s
         .client
         .create_campaign(&seller3, &s.verifier, &odd(&s.env, 2, 9, milestones(&s.env, 2_000)));
     ids.push(c);
-    s.client.add_bond(&c, &seller3, &(3 * USDC));
+    s.client.add_bond(&c, &seller3, &(5 * USDC));
     s.client.add_bond(&c, &coop, &(2 * USDC));
     bonds.push((c, seller3.clone()));
     bonds.push((c, coop.clone()));
@@ -650,9 +625,9 @@ fn contract_always_holds_what_it_owes() {
     s.client.withdraw_bond(&c, &coop);
     check(&ids, &bonds);
 
-    // Nothing is left but the pool and rounding dust.
-    let left = s.token.balance(&s.client.address) - s.client.config().pool;
-    assert!((0..=20).contains(&left), "{left} stroops stuck outside the pool");
+    // Nothing is left but rounding dust from the defaulted campaign's refunds.
+    let left = s.token.balance(&s.client.address);
+    assert!((0..=20).contains(&left), "{left} stroops stuck in the contract");
 }
 
 #[test]
@@ -722,7 +697,7 @@ fn dispute_freezes_payment_until_verifier_decides() {
     assert_eq!(s.token.balance(&s.seller), 0);
 
     // Real delivery later, buyer confirms with the QR.
-    assert_eq!(s.client.confirm_delivery(&id, &b, &3), 3 * USDC * 98 / 100);
+    assert_eq!(s.client.confirm_delivery(&id, &b, &3), 3 * USDC);
     assert_eq!(s.client.campaign(&id).status, Status::Completed);
 }
 
@@ -815,4 +790,100 @@ fn ratings_only_after_receiving_and_once() {
     let rep = s.client.reputation(&s.seller);
     assert_eq!(rep.rating_sum, 5);
     assert_eq!(rep.rating_count, 1);
+}
+
+#[test]
+fn unverified_sellers_sell_pay_on_delivery_only() {
+    let s = setup();
+    let newcomer = Address::generate(&s.env);
+    assert!(!s.client.is_seller_verified(&newcomer));
+
+    // No identity check, no advances.
+    assert_eq!(
+        s.client
+            .try_create_campaign(&newcomer, &s.verifier, &input(&s.env, 1, 5, milestones(&s.env, 1_000))),
+        Err(Ok(Error::NotVerified))
+    );
+
+    // Pay on delivery works exactly as before.
+    let id = s
+        .client
+        .create_campaign(&newcomer, &s.verifier, &input(&s.env, 1, 5, Vec::new(&s.env)));
+    let b = funded(&s, 2 * USDC);
+    s.client.buy(&id, &b, &2);
+    s.client.close_sale(&id);
+    assert_eq!(s.client.confirm_delivery(&id, &b, &2), 2 * USDC);
+    assert_eq!(s.client.campaign(&id).status, Status::Completed);
+    assert_eq!(s.token.balance(&newcomer), 2 * USDC);
+}
+
+#[test]
+fn revoked_seller_gets_no_new_advances_but_keeps_paid_ones() {
+    let s = setup();
+    let ms = vec![
+        &s.env,
+        MilestoneInput {
+            title: String::from_str(&s.env, "Alimento"),
+            bps: 1_000,
+        },
+        MilestoneInput {
+            title: String::from_str(&s.env, "Envases"),
+            bps: 1_000,
+        },
+    ];
+    let id = s
+        .client
+        .create_campaign(&s.seller, &s.verifier, &input(&s.env, 10, 10, ms));
+    s.sac.mint(&s.seller, &(2 * USDC));
+    s.client.add_bond(&id, &s.seller, &(2 * USDC));
+    let b = funded(&s, 10 * USDC);
+    s.client.buy(&id, &b, &10);
+    s.client.submit_milestone(&id, &0, &evidence(&s.env));
+    assert_eq!(s.client.approve_milestone(&id, &0), USDC);
+
+    // The verifier revokes the seller (e.g. the ID turned out to be someone else's).
+    s.client.set_seller_verified(&s.verifier, &s.seller, &false);
+    assert!(!s.client.is_seller_verified(&s.seller));
+    s.client.submit_milestone(&id, &1, &evidence(&s.env));
+    assert_eq!(s.client.try_approve_milestone(&id, &1), Err(Ok(Error::NotVerified)));
+    // The advance already paid stays paid, and new campaigns with advances are blocked.
+    assert_eq!(s.client.campaign(&id).advanced, USDC);
+    assert_eq!(
+        s.client
+            .try_create_campaign(&s.seller, &s.verifier, &input(&s.env, 1, 5, milestones(&s.env, 1_000))),
+        Err(Ok(Error::NotVerified))
+    );
+    // Deliveries still pay the rest of the price.
+    assert_eq!(s.client.confirm_delivery(&id, &b, &10), 9 * USDC);
+}
+
+#[test]
+fn only_admin_or_allowlisted_verifiers_verify_sellers() {
+    let s = setup();
+    let newcomer = Address::generate(&s.env);
+    let stranger = Address::generate(&s.env);
+    assert_eq!(
+        s.client.try_set_seller_verified(&stranger, &newcomer, &true),
+        Err(Ok(Error::VerifierNotAllowed))
+    );
+    // A verifier cannot vouch for itself.
+    assert_eq!(
+        s.client.try_set_seller_verified(&s.verifier, &s.verifier, &true),
+        Err(Ok(Error::SelfDealing))
+    );
+
+    s.client.set_seller_verified(&s.verifier, &newcomer, &true);
+    // The caller signs, and only the flag goes on chain.
+    assert_eq!(s.env.auths()[0].0, s.verifier);
+    assert!(s.client.is_seller_verified(&newcomer));
+
+    s.client.set_seller_verified(&s.admin, &newcomer, &false);
+    assert!(!s.client.is_seller_verified(&newcomer));
+
+    // A verifier removed from the allowlist can no longer verify anyone.
+    s.client.set_verifier(&s.verifier, &false);
+    assert_eq!(
+        s.client.try_set_seller_verified(&s.verifier, &newcomer, &true),
+        Err(Ok(Error::VerifierNotAllowed))
+    );
 }

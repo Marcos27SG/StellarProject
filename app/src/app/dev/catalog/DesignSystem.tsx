@@ -26,6 +26,7 @@ import {
   User,
   WifiOff,
   BadgeCheck,
+  Sprout,
   History,
 } from "lucide-react";
 import { useState } from "react";
@@ -39,7 +40,7 @@ import { Stars, StatusPill, Streak, TierBadge, TierLadder, VOUCHER_STATUS, Vouch
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { FundingBar } from "@/components/FundingBar";
 import { HandoffStatus } from "@/components/Handoff";
-import { ApartmentIcon, BasketIcon, CoffeeIcon, CrateIcon, EggIcon, MilkIcon, PoolIcon } from "@/components/icons";
+import { ApartmentIcon, BasketIcon, CoffeeIcon, CrateIcon, EggIcon, MilkIcon } from "@/components/icons";
 import { AyniMark, Logo } from "@/components/Logo";
 import { Money } from "@/components/Money";
 import { VoucherQR } from "@/components/MyVouchers";
@@ -67,7 +68,7 @@ function mk(now: bigint, o: Partial<Campaign> & { tag?: StatusTag }): Campaign {
     sale_end: now + 4n * DAY,
     delivery_deadline: now + 11n * DAY,
     milestones: [],
-    bond_cover_bps: 5000,
+    bond_cover_bps: 10_000,
     dispute_window: 3n * DAY,
     status: { tag } as Campaign["status"],
     sold: 640,
@@ -81,6 +82,14 @@ function mk(now: bigint, o: Partial<Campaign> & { tag?: StatusTag }): Campaign {
     bond_slashed: 0n,
     refund_per_unit: 0n,
     created_at: now - DAY,
+    escrow_shares: 0n,
+    bond_shares: 0n,
+    bond_shares_posted: 0n,
+    bond_left: 0n,
+    buyer_yield_bps: 5000,
+    protocol_yield_bps: 0,
+    yield_paid: 0n,
+    yield_loss: 0n,
     ...rest,
   };
 }
@@ -312,9 +321,9 @@ export function DesignSystem({ now }: { now: bigint }) {
 
       <Section title="Entrega en dos teléfonos (lado del productor)">
         <div className="grid max-w-4xl items-start gap-4 sm:grid-cols-3">
-          <HandoffStatus watch={{ delivered: 0 }} h={{ delivered: 0, pending: 2, disputed: false }} category={milk} unitPrice={toAmount("0.9")} releasedBps={0} feeBps={200} verifier="el verificador" windowLeft={3 * 86_400} />
-          <HandoffStatus key={replay} watch={{ delivered: 0 }} h={{ delivered: 2, pending: 0, disputed: false }} category={milk} unitPrice={toAmount("0.9")} releasedBps={0} feeBps={200} verifier="el verificador" windowLeft={null} />
-          <HandoffStatus watch={{ delivered: 0 }} h={{ delivered: 0, pending: 2, disputed: true }} category={milk} unitPrice={toAmount("0.9")} releasedBps={0} feeBps={200} verifier="Verificador de prueba de Ayni" windowLeft={null} />
+          <HandoffStatus watch={{ delivered: 0 }} h={{ delivered: 0, pending: 2, disputed: false }} category={milk} unitPrice={toAmount("0.9")} releasedBps={0} verifier="el verificador" windowLeft={3 * 86_400} />
+          <HandoffStatus key={replay} watch={{ delivered: 0 }} h={{ delivered: 2, pending: 0, disputed: false }} category={milk} unitPrice={toAmount("0.9")} releasedBps={0} sellerYield={toAmount("0.02")} verifier="el verificador" windowLeft={null} />
+          <HandoffStatus watch={{ delivered: 0 }} h={{ delivered: 0, pending: 2, disputed: true }} category={milk} unitPrice={toAmount("0.9")} releasedBps={0} verifier="Verificador de prueba de Ayni" windowLeft={null} />
         </div>
       </Section>
 
@@ -339,9 +348,9 @@ export function DesignSystem({ now }: { now: bigint }) {
         </div>
         <div className="grid max-w-3xl gap-3">
           <p>
-            Fondo comunitario{" "}
-            <Hint label="Qué es: Fondo comunitario">
-              El 2% de cada cobro va a un fondo común que ayuda a cubrir los reembolsos si un productor falla. <a href="#">Ver la prueba</a>
+            Rendimiento{" "}
+            <Hint label="Qué es: Rendimiento">
+              Lo que gana tu pago mientras espera la entrega. Al recibir se reparte entre tú y el productor. <a href="#">Ver la prueba</a>
             </Hint>
           </p>
           <Tip id="dev-catalog">Paga solo lo que puedas esperar hasta la fecha de entrega.</Tip>
@@ -415,9 +424,9 @@ export function DesignSystem({ now }: { now: bigint }) {
             </span>
           ))}
         </div>
-        <Label>Interfaz (lucide, y Fondo común propio)</Label>
+        <Label>Interfaz (lucide)</Label>
         <div className="flex flex-wrap gap-4 text-ink">
-          {[House, Ticket, Store, User, Search, ShieldCheck, Lock, FileText, PoolIcon, QrCode, ScanLine, Share, History, Scale, PenLine, Clock, CalendarDays, MapPin, Star, BadgeCheck, Eye, WifiOff, Hand].map(
+          {[House, Ticket, Store, User, Search, ShieldCheck, Lock, FileText, Sprout, QrCode, ScanLine, Share, History, Scale, PenLine, Clock, CalendarDays, MapPin, Star, BadgeCheck, Eye, WifiOff, Hand].map(
             (I, i) => (
               <I key={i} className="size-7" strokeWidth={2} aria-hidden />
             ),
@@ -433,7 +442,7 @@ function CheckoutDemo({ now, open }: { now: bigint; open: (a: Action, c: Campaig
   const live = mk(now, { sold: 180 });
   const buy = nextActions(live, null, "buyer", now, { category: milk }).find((a) => a.id === "buy");
   const active = mk(now, { tag: "Active", sold: 640, pending: 2, released_bps: 2000 });
-  const h: Holding = { units: 3, pending: 2, pending_since: now - 3600n, disputed: false, delivered: 0, refunded: 0, rated: false };
+  const h: Holding = { units: 3, pending: 2, pending_since: now - 3600n, disputed: false, delivered: 0, refunded: 0, rated: false, yield_paid: 0n };
   const acts = nextActions(active, h, "buyer", now, { category: milk });
   return (
     <div className="grid max-w-4xl items-start gap-5 sm:grid-cols-2">

@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
 
 // Ayni's own icons (board 06), where lucide has nothing close enough: the five category icons, an
-// "Otros" icon in the same style, and "Fondo común". 24 px grid, 20 px live area, 2 px stroke, round
+// "Otros" icon in the same style. 24 px grid, 20 px live area, 2 px stroke, round
 // caps and joins, currentColor, the same stroke as the logo. Simple shapes that read at 16 px and in
 // black and white on the printed poster.
 
@@ -42,8 +42,3 @@ export const ApartmentIcon = icon(
 );
 /** Not on the board: a crate in the same style, for the generic category. */
 export const CrateIcon = icon("M4 8l8-4 8 4v9l-8 4-8-4z M4 8l8 4 8-4 M12 12v9", "CrateIcon");
-/** "Fondo común": three people joined, a community reserve, not a coin. */
-export const PoolIcon = icon(
-  "M12 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M5 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M19 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M10.8 6.6 6 16.3 M13.2 6.6 18 16.3 M7.5 18h9",
-  "PoolIcon",
-);

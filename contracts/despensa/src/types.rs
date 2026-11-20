@@ -4,8 +4,6 @@ use soroban_sdk::{contracterror, contracttype, Address, String, Vec};
 pub const BPS: i128 = 10_000;
 /// Max number of advance milestones per campaign.
 pub const MAX_MILESTONES: u32 = 5;
-/// Max protocol fee: 10%.
-pub const MAX_FEE_BPS: u32 = 1_000;
 
 /// Dispute window bounds. The admin cannot set a window so short that a seller's delivery claim
 /// pays out before buyers can react, nor so long that payouts and settlement never happen.
@@ -19,8 +17,18 @@ pub const MAX_TITLE_LEN: u32 = 256;
 pub const MAX_URI_LEN: u32 = 4_096;
 pub const MAX_EVIDENCE_LEN: u32 = 1_024;
 
-/// Share of the guarantee pool a single default may use, unless the admin sets another cap.
-pub const DEFAULT_POOL_CAP_BPS: u32 = 2_000;
+/// Yield defaults and bounds.
+/// Share of a delivered unit's yield that goes to its buyer (the rest goes to the seller).
+pub const DEFAULT_BUYER_YIELD_BPS: u32 = 5_000;
+/// Ayni's share of a delivered unit's yield is at most 20% (0 by default).
+pub const MAX_PROTOCOL_YIELD_BPS: u32 = 2_000;
+/// Share of everything held that stays idle in the contract, so most payouts skip the pool.
+pub const DEFAULT_LIQUID_BPS: u32 = 2_000;
+pub const MIN_LIQUID_BPS: u32 = 1_000;
+/// Smallest automatic supply to the pool (1 USDC): smaller ones are not worth the fees.
+pub const MIN_DEPOSIT: i128 = 10_000_000;
+/// Virtual shares (ERC-4626 decimals offset) against share-price manipulation.
+pub const VIRTUAL_SHARES: i128 = 1_000_000;
 
 /// ~5s per ledger -> 17_280 ledgers per day.
 pub const DAY_LEDGERS: u32 = 17_280;
@@ -44,6 +52,7 @@ pub enum Error {
     NothingToClaim = 11,
     MissingEvidence = 12,
     AlreadyReleased = 13,
+    /// Reserved: the payout fee was removed in model v2. Kept so codes never shift.
     FeeTooHigh = 14,
     SelfDealing = 15,
     DisputeOpen = 16,
@@ -56,6 +65,10 @@ pub enum Error {
     /// A title, link or evidence string is longer than its cap.
     TooLong = 21,
     NoPendingAdmin = 22,
+    /// Advances (milestones) need a seller whose identity a verifier checked off-chain.
+    NotVerified = 23,
+    /// The lending pool cannot pay out right now (frozen or fully lent out). Nothing changed.
+    YieldUnavailable = 24,
 }
 
 /// Lifecycle of a pre-sale campaign.
@@ -70,7 +83,7 @@ pub enum Status {
     Completed,
     /// Goal not reached (or cancelled before production). Full refunds.
     Failed,
-    /// Producer did not deliver. Buyers are refunded from escrow + bond + pool.
+    /// Producer did not deliver. Buyers are refunded from escrow, then the bond.
     Defaulted,
 }
 
@@ -149,9 +162,25 @@ pub struct Campaign {
     pub bond_total: i128,
     /// Part of the bond used to refund buyers on default.
     pub bond_slashed: i128,
-    /// Set when the campaign fails or defaults.
+    /// Set when the campaign fails or defaults: principal returned per unit (yield comes on top).
     pub refund_per_unit: i128,
     pub created_at: u64,
+    /// Vault shares backing `escrow` (principal). Their value minus `escrow` is the yield.
+    pub escrow_shares: i128,
+    /// Vault shares backing the bonds still in the contract.
+    pub bond_shares: i128,
+    /// Shares originally minted for the bonds not yet withdrawn (to split `bond_shares`).
+    pub bond_shares_posted: i128,
+    /// Bond principal still in the contract (posted - slashed - withdrawn).
+    pub bond_left: i128,
+    /// Snapshot of the yield split when the campaign was created (admin changes never apply to
+    /// a live campaign): buyer's and Ayni's share of a delivered unit's yield.
+    pub buyer_yield_bps: u32,
+    pub protocol_yield_bps: u32,
+    /// Yield paid out so far, to anyone (buyers, seller, bond providers, Ayni).
+    pub yield_paid: i128,
+    /// Money the lending pool lost on this campaign's payouts so far.
+    pub yield_loss: i128,
 }
 
 /// A buyer's vouchers in one campaign.
@@ -167,9 +196,62 @@ pub struct Holding {
     pub delivered: u32,
     pub refunded: u32,
     pub rated: bool,
+    /// Yield this buyer has been paid so far in this campaign.
+    pub yield_paid: i128,
 }
 
-/// On-chain track record of a producer. Drives the tier (advance limits and bond requirements).
+/// One bond provider's stake in a campaign.
+#[contracttype]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct BondPos {
+    pub principal: i128,
+    pub shares: i128,
+}
+
+/// Who received a piece of yield.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum YieldKind {
+    Buyer,
+    Seller,
+    Bond,
+    Protocol,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct YieldConfig {
+    /// Lending pool, fixed at deploy. None: yield is off for good.
+    pub pool: Option<Address>,
+    /// New deposits into the pool (the admin can pause them; money already there stays).
+    pub enabled: bool,
+    pub liquid_bps: u32,
+    /// Split given to campaigns created from now on.
+    pub buyer_yield_bps: u32,
+    pub protocol_yield_bps: u32,
+    /// Tokens idle in the contract.
+    pub idle: i128,
+    /// Current value of the pool position.
+    pub invested: i128,
+    pub total_shares: i128,
+    /// Yield paid out so far, all campaigns.
+    pub yield_paid: i128,
+    /// Losses passed on so far, all campaigns.
+    pub yield_loss: i128,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CampaignValue {
+    /// Principal in escrow and what it is worth now (principal + yield, or less after a loss).
+    pub escrow: i128,
+    pub escrow_value: i128,
+    /// Bond principal still backing the campaign (posted - slashed - withdrawn) and its value.
+    pub bond: i128,
+    pub bond_value: i128,
+}
+
+/// On-chain track record of a producer. Drives the tier (how much may be advanced).
 #[contracttype]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Reputation {
@@ -190,7 +272,7 @@ pub struct TierInfo {
     pub tier: u32,
     /// Max share of the sale that can be paid in advance through milestones.
     pub max_advance_bps: u32,
-    /// Bond required, as a share of the advances paid.
+    /// Bond required, as a share of the advances paid. 100% at every tier since model v2.
     pub bond_cover_bps: u32,
 }
 
@@ -209,12 +291,10 @@ pub struct BuyerStats {
 pub struct Config {
     pub admin: Address,
     pub token: Address,
-    pub fee_bps: u32,
+    /// Receives Ayni's share of the yield (`protocol_yield_bps`, 0 by default). Fixed at deploy.
+    pub treasury: Address,
     /// Dispute window new campaigns get. Each campaign keeps its own snapshot.
     pub dispute_window: u64,
-    pub pool: i128,
-    /// Max share of the pool one default may use.
-    pub pool_cap_bps: u32,
     pub campaigns: u64,
 }
 
@@ -223,13 +303,25 @@ pub struct Config {
 pub enum DataKey {
     Admin,
     Token,
-    FeeBps,
+    Treasury,
     DisputeWindow,
-    Pool,
-    PoolCapBps,
     PendingAdmin,
     /// Allowlisted verifier (present = allowed).
     Verifier(Address),
+    /// Seller whose identity was checked off-chain (present = verified). Only the flag lives on
+    /// chain: no documents, names or ID numbers.
+    SellerVerified(Address),
+    // Yield (instance storage).
+    YieldPool,
+    YieldEnabled,
+    LiquidBps,
+    BuyerYieldBps,
+    ProtocolYieldBps,
+    ReserveIndex,
+    BTokens,
+    TotalShares,
+    YieldPaid,
+    YieldLoss,
     NextId,
     Campaign(u64),
     Holding(u64, Address),

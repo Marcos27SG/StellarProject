@@ -13,6 +13,7 @@ import { Money } from "@/components/Money";
 import { VoucherQR } from "@/components/MyVouchers";
 import { Dialog, EmptyState, Notice, Term, VoucherSkeleton } from "@/components/ui";
 import { voucherCode, VoucherTicket } from "@/components/VoucherTicket";
+import { YieldEarned } from "@/components/YieldEarned";
 import { readOnlyProps, useWallet } from "@/components/Wallet";
 import { nextActions, type Action, type ActionId } from "@/lib/actions";
 import type { Campaign, Holding } from "@/lib/despensa";
@@ -237,6 +238,7 @@ function VoucherRow({
         waitingNote={group === "presale" ? "Si no se llega al mínimo, vuelven a ti completos." : "Se liberan cuando confirmes."}
       >
         <RowDetail group={group} c={c} h={h} category={category} now={now} disputeWindow={disputeWindow} units={units} />
+        <YieldEarned c={c} h={h} buyer={address} category={category} />
         <ActionList actions={shown} c={c} category={category} compact onLocal={(a) => a.id === "show_qr" && setQr(true)} />
       </VoucherTicket>
       {qr && (
@@ -294,7 +296,8 @@ function RowDetail({
   if (group === "refund") {
     return (
       <p className="text-ink-2">
-        Te corresponden <Money amount={c.refund_per_unit * BigInt(units)} category={category} size="sm" showBs={false} /> de reembolso.
+        Te corresponden <Money amount={c.refund_per_unit * BigInt(units)} category={category} size="sm" showBs={false} /> de reembolso, más lo
+        que ganó tu pago.
       </p>
     );
   }

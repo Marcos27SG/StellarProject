@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowRight, CalendarClock, ChevronDown, PenLine, Plus } from "lucide-react";
+import { ArrowRight, BadgeCheck, CalendarClock, ChevronDown, Copy, Mail, MessageCircle, PenLine, Plus } from "lucide-react";
+import { useState } from "react";
 import Link from "next/link";
 import { ProducerLine, Stars, StatusPill, Streak, TierBadge, TierLadder } from "@/components/badges";
 import { timeHint } from "@/components/CampaignCard";
@@ -11,8 +12,9 @@ import { EmptyState, Notice, Pill, ProgressBar, Skeleton, Stat, Term } from "@/c
 import { readOnlyProps, useWallet } from "@/components/Wallet";
 import { attentionActions, nextActions, type Role } from "@/lib/actions";
 import { avgRating, type StatusTag } from "@/lib/despensa";
-import { formatNumber, formatPct } from "@/lib/format";
-import { useBond, useCampaignList, useNow, useProducer, type CampaignItem } from "@/lib/hooks";
+import { formatNumber, formatPct, whatsappHref } from "@/lib/format";
+import { config } from "@/lib/config";
+import { useBond, useCampaignList, useNow, useProducer, useSellerVerified, type CampaignItem } from "@/lib/hooks";
 import { TIER_LIMITS, TIER_NAMES, tierProgress } from "@/lib/reputation";
 
 const RANK: Record<StatusTag, number> = { Active: 0, Funding: 1, Completed: 2, Failed: 3, Defaulted: 3 };
@@ -87,6 +89,8 @@ function Dashboard({ address }: { address: string }) {
       </header>
 
       <ReputationCard address={address} />
+
+      <VerificationCard address={address} />
 
       <section className="space-y-3" aria-labelledby="mine">
         <h2 id="mine" className="sr-only">
@@ -164,8 +168,8 @@ function ReputationCard({ address }: { address: string }) {
       <p className="text-ink-2">
         {tier.max_advance_bps > 0 ? (
           <>
-            Hoy puedes pedir adelantos de hasta <b className="text-ink">{formatPct(tier.max_advance_bps)}</b>, con un aval del{" "}
-            <b className="text-ink">{formatPct(tier.bond_cover_bps)}</b> de lo adelantado.
+            Tu nivel permite adelantos de hasta <b className="text-ink">{formatPct(tier.max_advance_bps)}</b>, con un aval que cubre el{" "}
+            <b className="text-ink">{formatPct(tier.bond_cover_bps)}</b> de lo adelantado. Cumplir entregas sube ese límite.
           </>
         ) : (
           <>Por ahora vendes solo con pago contra entrega.</>
@@ -275,5 +279,78 @@ function RowSkeleton() {
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * "Verifica tu identidad para pedir adelantos". The check is a request to a verifier, done outside
+ * the app (CI, NIT or co-op membership): the app stores no documents and the contract only keeps the
+ * "verified" flag. Contact links come from NEXT_PUBLIC_VERIFY_WHATSAPP / NEXT_PUBLIC_VERIFY_EMAIL.
+ */
+function VerificationCard({ address }: { address: string }) {
+  const verified = useSellerVerified(address);
+  const [copied, setCopied] = useState(false);
+  if (verified.data === undefined) return null;
+  if (verified.data) {
+    return (
+      <p id="verificar" className="flex items-center gap-2 text-ink-2">
+        <BadgeCheck className="size-5 text-brand" aria-hidden />
+        <span>
+          <b className="text-ink">Identidad verificada.</b> Puedes pedir adelantos por hitos, siempre con un aval que los cubra.
+        </span>
+      </p>
+    );
+  }
+  const message = `Hola, quiero verificar mi identidad en Ayni para pedir adelantos. Mi cuenta: ${address}`;
+  const wa = whatsappHref(config.verifyWhatsapp);
+  const mail = config.verifyEmail
+    ? `mailto:${config.verifyEmail}?subject=${encodeURIComponent("Verificación de productor en Ayni")}&body=${encodeURIComponent(message)}`
+    : null;
+  return (
+    <section id="verificar" aria-labelledby="verify-title" className="card space-y-4 p-5">
+      <div className="space-y-1">
+        <h2 id="verify-title" className="h-section flex items-center gap-2">
+          <BadgeCheck className="size-6 text-brand" aria-hidden /> Verifica tu identidad para pedir adelantos
+        </h2>
+        <p className="text-ink-2">
+          Sin verificar puedes vender igual, con pago contra entrega. Para recibir dinero antes de entregar, un verificador (tu cooperativa,
+          asociación o Ayni) tiene que revisar tu identidad.
+        </p>
+      </div>
+      <ol className="list-decimal space-y-1.5 pl-5 text-ink-2 [&_b]:text-ink">
+        <li>
+          <b>Escribe al verificador</b> con tu dirección de cuenta (abajo).
+        </li>
+        <li>
+          <b>Muéstrale tu carnet, NIT o credencial de socio.</b> Se revisa fuera de la app: Ayni no guarda tus documentos y en Stellar queda solo
+          la marca de verificado.
+        </li>
+        <li>
+          <b>Cuando te marque,</b> verás aquí &quot;Identidad verificada&quot; y podrás agregar hitos a tus preventas.
+        </li>
+      </ol>
+      <div className="flex flex-wrap gap-2">
+        {wa && (
+          <a className="btn" href={`${wa}?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer">
+            <MessageCircle className="size-5" aria-hidden /> Pedir por WhatsApp
+          </a>
+        )}
+        {mail && (
+          <a className={wa ? "btn-secondary" : "btn"} href={mail}>
+            <Mail className="size-5" aria-hidden /> Pedir por correo
+          </a>
+        )}
+        <button
+          type="button"
+          className={wa || mail ? "btn-ghost" : "btn-secondary"}
+          onClick={() => navigator.clipboard?.writeText(address).then(() => setCopied(true), () => {})}
+        >
+          <Copy className="size-4" aria-hidden /> {copied ? "Dirección copiada" : "Copiar mi dirección"}
+        </button>
+      </div>
+      {!wa && !mail && (
+        <p className="t-detail text-ink-2">Envíala a tu cooperativa o asociación, o a quien verifique tus preventas.</p>
+      )}
+    </section>
   );
 }

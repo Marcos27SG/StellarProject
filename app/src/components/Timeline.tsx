@@ -32,7 +32,7 @@ function steps(c: Campaign, category: CategoryDef): Step[] {
       return [
         { ...sale, state: "done" },
         { ...prod, state: "done" },
-        { label: "Incumplida", detail: "Reembolsos desde la custodia, el aval y el fondo", state: "defaulted" },
+        { label: "Incumplida", detail: "Reembolsos desde la custodia y luego el aval", state: "defaulted" },
       ];
   }
 }

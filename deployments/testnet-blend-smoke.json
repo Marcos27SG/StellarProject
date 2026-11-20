@@ -1,0 +1,34 @@
+﻿{
+    "network":  "testnet",
+    "rpcUrl":  "https://soroban-testnet.stellar.org",
+    "passphrase":  "Test SDF Network ; September 2015",
+    "contractId":  "CAZPTUP3GIJSTAB3LPUZFC4VBWY3MI2W4ERXIQBKLZSOB7YWODQ4H64X",
+    "token":  {
+                  "asset":  "USDC:GATALTGTWIOT6BUDBCZM3Q4OQ4BO2COLOAZ7IYSKPLC2PMSOPPGF5V56",
+                  "contractId":  "CAQCFVLOBK5GIULPNZRGATJJMIZL5BSP7X5YJVMGCPTUEPFM4AVSRCJU"
+              },
+    "treasury":  "GA4HBTSWABGZQYGRDL7U4VUDZPBSXWCRHWZE6KIRL7735ZGCYZS6IOGC",
+    "yieldPool":  {
+                      "kind":  "blend",
+                      "contractId":  "CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF",
+                      "aprBps":  null
+                  },
+    "liquidBps":  2000,
+    "buyerYieldBps":  5000,
+    "protocolYieldBps":  0,
+    "disputeWindow":  259200,
+    "accounts":  {
+                     "admin":  "GAECYGOEDPNXHNKNXFEI3JOFB4WLOEDYY4DDAZ3EF74RC4UNZO2LKCWC",
+                     "seller":  "GCCNUJF362MBLA3RN2G3VH4KDMVTNNPS5M32AL5CFW65H66PIHC3L33P",
+                     "verifier":  "GDVZDGLLY2COW6VGW6GT5A47KWHWNVIE3YQ2THQV6IZWTSCR6DISG2AN",
+                     "buyer":  "GALLLWHLW7ZI5MDK6IYEMV7AYRNCWU5SDE4SUTLDA5SF3KCMCTW325MY",
+                     "treasury":  "GA4HBTSWABGZQYGRDL7U4VUDZPBSXWCRHWZE6KIRL7735ZGCYZS6IOGC"
+                 },
+    "allowedVerifiers":  [
+                             "GDVZDGLLY2COW6VGW6GT5A47KWHWNVIE3YQ2THQV6IZWTSCR6DISG2AN"
+                         ],
+    "verifiedSellers":  [
+                            "GCCNUJF362MBLA3RN2G3VH4KDMVTNNPS5M32AL5CFW65H66PIHC3L33P"
+                        ],
+    "deployedAt":  "2026-11-20T03:03:46.4945414Z"
+}

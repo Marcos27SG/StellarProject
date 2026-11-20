@@ -18,22 +18,16 @@ import { useWallet } from "@/components/Wallet";
 import type { CategoryDef } from "@/catalog";
 import { actionsForRoles, deriveRoles, type Action } from "@/lib/actions";
 import { config } from "@/lib/config";
-import type { Campaign, ContractConfig } from "@/lib/despensa";
+import type { Campaign } from "@/lib/despensa";
 import { decimalsFor, formatMoney, formatPct, safeHref, shortAddress, whatsappHref } from "@/lib/format";
-import { useBond, useCampaignItem, useContractConfig, useHolding, useNow, usePendingDeliveries, usePolling } from "@/lib/hooks";
+import { useBond, useCampaignItem, useCampaignValue, useHolding, useNow, usePendingDeliveries, usePolling } from "@/lib/hooks";
 import { formatAttribute, type CampaignMetadata } from "@/lib/metadata";
-
-/** What the guarantee pool can put toward one default: the contract caps it at a share of the pool. */
-function poolShare(cfg: ContractConfig | undefined): bigint | undefined {
-  return cfg ? (cfg.pool * BigInt(cfg.pool_cap_bps)) / BigInt(10_000) : undefined;
-}
 
 export default function CampaignView({ id }: { id: string }) {
   const valid = /^\d+$/.test(id);
   const campaignId = valid ? BigInt(id) : null;
   const { address } = useWallet();
   const item = useCampaignItem(campaignId);
-  const cfg = useContractConfig();
   const holding = useHolding(campaignId ?? BigInt(0), campaignId === null ? null : address);
   const bond = useBond(campaignId ?? BigInt(0), campaignId === null ? null : address);
   const now = useNow();
@@ -115,11 +109,17 @@ export default function CampaignView({ id }: { id: string }) {
             </h2>
             <FundingBar c={c} category={category} size="lg" now={now} />
             <Timeline c={c} category={category} />
+            {c.yield_loss > BigInt(0) && (
+              <Notice tone="warning" title="El servicio de préstamos perdió dinero">
+                Los pagos de esta preventa salieron {formatMoney(c.yield_loss)} por debajo de lo depositado, repartido en la misma proporción
+                entre todos. Queda registrado en el contrato.
+              </Notice>
+            )}
           </section>
 
           {c.milestones.length > 0 && <Milestones c={c} category={category} />}
 
-          <ProtectionExplainer c={c} category={category} pool={poolShare(cfg.data)} disputeWindow={c.dispute_window} />
+          <ProtectionExplainer c={c} category={category} disputeWindow={c.dispute_window} />
 
           {roles.includes("seller") && (
             <RolePanel title="Tu campaña" subtitle="Eres el productor de esta preventa.">
@@ -328,6 +328,10 @@ function Milestones({ c, category }: { c: Campaign; category: CategoryDef }) {
 
 /** The raw on-chain numbers, for whoever wants to check them. Collapsed: buyers don't need them to decide. */
 function OnChain({ c, category }: { c: Campaign; category: CategoryDef }) {
+  const value = useCampaignValue(c.id);
+  const zero = BigInt(0);
+  // Earned so far: yield already paid out plus what escrow and bonds are worth above their principal.
+  const accrued = value.data ? value.data.escrow_value - value.data.escrow + (value.data.bond_value - value.data.bond) : undefined;
   return (
     <details className="group border-t border-line pt-6">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
@@ -350,6 +354,22 @@ function OnChain({ c, category }: { c: Campaign; category: CategoryDef }) {
         <Stat label="Entregado" value={<><Qty n={c.delivered} category={category} /> de {c.sold}</>} />
         <Stat label="Por confirmar" value={<Qty n={c.pending} category={category} />} />
         <Stat label="Reembolsado" value={<Qty n={c.refunded} category={category} />} />
+        <Stat
+          label={config.network === "testnet" ? "Rendimiento de prueba" : "Rendimiento"}
+          value={
+            accrued === undefined ? (
+              <Skeleton className="mt-1 h-5 w-20" />
+            ) : (
+              <Money amount={c.yield_paid + (accrued > zero ? accrued : zero)} category={category} size="sm" showBs={false} />
+            )
+          }
+          hint={
+            <>
+              Pagado: <Money amount={c.yield_paid} category={category} size="sm" showBs={false} />.
+              {accrued !== undefined && accrued > zero && " El resto se reparte al entregar o devolver."}
+            </>
+          }
+        />
       </dl>
       <p className="mt-5 flex flex-wrap gap-x-5 gap-y-1">
         <ExplorerLink path={`contract/${config.contractId}`}>Contrato {shortAddress(config.contractId)}</ExplorerLink>

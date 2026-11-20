@@ -214,7 +214,10 @@ function HowItWorks() {
         </li>
         <li>
           <b>3. Recibes y confirmas.</b> Recién ahí cobra el productor. Si no se llega al mínimo, recuperas el 100%. Si el productor no
-          cumple, se te devuelve hasta lo que pagaste: de la custodia, de su aval y del fondo común.
+          cumple, se te devuelve desde tu pago en custodia y luego su aval, que cubre todo adelanto.
+        </li>
+        <li>
+          <b>4. Mientras espera, tu pago gana.</b> Al recibir te llevas tu parte de lo ganado; si se te devuelve, todo.
         </li>
       </ol>
     </details>
