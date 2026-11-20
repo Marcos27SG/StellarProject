@@ -103,6 +103,16 @@ pub struct VerifierSet {
 
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SellerVerified {
+    #[topic]
+    pub seller: Address,
+    pub verified: bool,
+    /// The admin or allowlisted verifier who set the flag.
+    pub by: Address,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AdminChanged {
     #[topic]
     pub admin: Address,

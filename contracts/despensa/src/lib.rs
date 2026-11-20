@@ -6,11 +6,12 @@
 //! when it is earned:
 //!
 //! * **All-or-nothing goal**: if not enough units are sold, everyone gets 100% back.
-//! * **Milestone advances**: the producer can receive part of the money up front (to buy feed,
-//!   seeds, materials) only when an independent verifier approves evidence of progress, and only
-//!   up to a limit set by the producer's on-chain reputation tier.
-//! * **Bond / "aval solidario"**: advances must be backed by a bond posted by the producer or by
-//!   guarantors (co-op, family, other producers). The bond is slashed to refund buyers on default.
+//! * **Milestone advances**: only identity-verified producers can receive part of the money up
+//!   front (to buy feed, seeds, materials), only when an independent verifier approves evidence of
+//!   progress, and only up to a limit set by the producer's on-chain reputation tier.
+//! * **Bond / "aval solidario"**: every advance is 100% backed by a bond posted by the producer or
+//!   by guarantors (co-op, family, other producers). The bond is slashed to refund buyers on
+//!   default, so a default after advances still returns the full price.
 //! * **Pay on delivery**: the rest of each unit's price is released only when the buyer confirms
 //!   reception (or the seller's delivery claim survives a dispute window).
 //! * **Reputation**: completed campaigns, streaks, defaults and ratings live on-chain and unlock
@@ -73,6 +74,17 @@ fn is_allowed_verifier(env: &Env, who: &Address) -> bool {
             .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND);
     }
     allowed
+}
+
+fn is_seller_verified(env: &Env, seller: &Address) -> bool {
+    let key = DataKey::SellerVerified(seller.clone());
+    let verified: bool = env.storage().persistent().get(&key).unwrap_or(false);
+    if verified {
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND);
+    }
+    verified
 }
 
 fn get_campaign(env: &Env, id: u64) -> Result<Campaign, Error> {
@@ -160,15 +172,16 @@ fn save_bond(env: &Env, id: u64, who: &Address, amount: i128) {
 // Business rules
 // ---------------------------------------------------------------------------
 
-/// Reputation -> how much a producer may receive in advance and how much bond must back it.
+/// Reputation -> how much a verified producer may receive in advance. Every advance is backed
+/// 100% by the bond at every tier: reputation raises the ceiling, never lowers the bond.
 ///
-/// | Tier | Who                         | Max advance | Bond required (of advance) |
-/// |------|-----------------------------|-------------|----------------------------|
-/// | 0    | Defaulted, streak not rebuilt | 0%        | 100%                       |
-/// | 1    | New producer                | 20%         | 100%                       |
-/// | 2    | 1-2 completed campaigns     | 30%         | 50%                        |
-/// | 3    | 3-5 completed campaigns     | 40%         | 25%                        |
-/// | 4    | 6+ completed campaigns      | 50%         | 10%                        |
+/// | Tier | Who                           | Max advance | Bond required (of advance) |
+/// |------|-------------------------------|-------------|----------------------------|
+/// | 0    | Defaulted, streak not rebuilt | 0%          | 100%                       |
+/// | 1    | New producer                  | 20%         | 100%                       |
+/// | 2    | 1-2 completed campaigns       | 30%         | 100%                       |
+/// | 3    | 3-5 completed campaigns       | 40%         | 100%                       |
+/// | 4    | 6+ completed campaigns        | 50%         | 100%                       |
 ///
 /// An average rating below 3 stars (with 5+ ratings) caps the producer at tier 1.
 ///
@@ -192,16 +205,16 @@ fn tier_for(rep: &Reputation) -> TierInfo {
     if rep.rating_count >= 5 && rep.rating_sum < rep.rating_count * 3 && tier > 1 {
         tier = 1;
     }
-    let (max_advance_bps, bond_cover_bps) = match tier {
-        1 => (2_000, 10_000),
-        2 => (3_000, 5_000),
-        3 => (4_000, 2_500),
-        _ => (5_000, 1_000),
+    let max_advance_bps = match tier {
+        1 => 2_000,
+        2 => 3_000,
+        3 => 4_000,
+        _ => 5_000,
     };
     TierInfo {
         tier,
         max_advance_bps,
-        bond_cover_bps,
+        bond_cover_bps: 10_000,
     }
 }
 
@@ -386,6 +399,41 @@ impl Despensa {
         Ok(())
     }
 
+    /// Marks a seller as identity-verified (or revokes it). The check itself (CI, NIT or co-op
+    /// membership) happens off-chain; only the flag is stored. Callable by the admin or an
+    /// allowlisted verifier. Revoking blocks new advances; advances already paid are unaffected.
+    pub fn set_seller_verified(
+        env: Env,
+        caller: Address,
+        seller: Address,
+        verified: bool,
+    ) -> Result<(), Error> {
+        caller.require_auth();
+        if caller != admin(&env) && !is_allowed_verifier(&env, &caller) {
+            return Err(Error::VerifierNotAllowed);
+        }
+        if caller == seller {
+            return Err(Error::SelfDealing);
+        }
+        let key = DataKey::SellerVerified(seller.clone());
+        if verified {
+            env.storage().persistent().set(&key, &true);
+            env.storage()
+                .persistent()
+                .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND);
+        } else {
+            env.storage().persistent().remove(&key);
+        }
+        bump_instance(&env);
+        SellerVerified {
+            seller,
+            verified,
+            by: caller,
+        }
+        .publish(&env);
+        Ok(())
+    }
+
     /// Step 1 of an admin handover. Nothing changes until `new_admin` calls `accept_admin`,
     /// so a typo in the address cannot lock the contract.
     pub fn propose_admin(env: Env, new_admin: Address) -> Result<(), Error> {
@@ -411,7 +459,8 @@ impl Despensa {
 
     // -------------------------------------------------------------- producer
 
-    /// Creates a pre-sale. Advances (sum of milestone bps) are capped by the seller's tier.
+    /// Creates a pre-sale. Advances (milestones) need an identity-verified seller and are capped
+    /// by the seller's tier. Anyone can sell pay-on-delivery only, without milestones.
     /// The verifier must be on the admin's allowlist: a seller cannot appoint a friend.
     pub fn create_campaign(
         env: Env,
@@ -440,6 +489,9 @@ impl Despensa {
         }
         if input.title.len() > MAX_TITLE_LEN || input.metadata_uri.len() > MAX_URI_LEN {
             return Err(Error::TooLong);
+        }
+        if !input.milestones.is_empty() && !is_seller_verified(&env, &seller) {
+            return Err(Error::NotVerified);
         }
 
         let tier = tier_for(&get_rep(&env, &seller));
@@ -583,11 +635,15 @@ impl Despensa {
         Ok(())
     }
 
-    /// Verifier approves a milestone -> advance released to the seller, if the bond covers it.
+    /// Verifier approves a milestone -> advance released to the seller, if the bond covers it
+    /// and the seller is still verified.
     pub fn approve_milestone(env: Env, id: u64, index: u32) -> Result<i128, Error> {
         let mut c = get_campaign(&env, id)?;
         c.verifier.require_auth();
         require_status(&c, Status::Active)?;
+        if !is_seller_verified(&env, &c.seller) {
+            return Err(Error::NotVerified);
+        }
         let mut m = c.milestones.get(index).ok_or(Error::NotFound)?;
         if m.released {
             return Err(Error::AlreadyReleased);
@@ -937,6 +993,10 @@ impl Despensa {
 
     pub fn is_verifier(env: Env, verifier: Address) -> bool {
         is_allowed_verifier(&env, &verifier)
+    }
+
+    pub fn is_seller_verified(env: Env, seller: Address) -> bool {
+        is_seller_verified(&env, &seller)
     }
 
     pub fn pending_admin(env: Env) -> Option<Address> {

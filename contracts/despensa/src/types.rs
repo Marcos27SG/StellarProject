@@ -52,6 +52,8 @@ pub enum Error {
     /// A title, link or evidence string is longer than its cap.
     TooLong = 21,
     NoPendingAdmin = 22,
+    /// Advances (milestones) need a seller whose identity a verifier checked off-chain.
+    NotVerified = 23,
 }
 
 /// Lifecycle of a pre-sale campaign.
@@ -165,7 +167,7 @@ pub struct Holding {
     pub rated: bool,
 }
 
-/// On-chain track record of a producer. Drives the tier (advance limits and bond requirements).
+/// On-chain track record of a producer. Drives the tier (how much may be advanced).
 #[contracttype]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Reputation {
@@ -186,7 +188,7 @@ pub struct TierInfo {
     pub tier: u32,
     /// Max share of the sale that can be paid in advance through milestones.
     pub max_advance_bps: u32,
-    /// Bond required, as a share of the advances paid.
+    /// Bond required, as a share of the advances paid. 100% at every tier since model v2.
     pub bond_cover_bps: u32,
 }
 
@@ -222,6 +224,9 @@ pub enum DataKey {
     PendingAdmin,
     /// Allowlisted verifier (present = allowed).
     Verifier(Address),
+    /// Seller whose identity was checked off-chain (present = verified). Only the flag lives on
+    /// chain: no documents, names or ID numbers.
+    SellerVerified(Address),
     NextId,
     Campaign(u64),
     Holding(u64, Address),
