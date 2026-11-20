@@ -4,8 +4,6 @@ use soroban_sdk::{contracterror, contracttype, Address, String, Vec};
 pub const BPS: i128 = 10_000;
 /// Max number of advance milestones per campaign.
 pub const MAX_MILESTONES: u32 = 5;
-/// Max protocol fee: 10%.
-pub const MAX_FEE_BPS: u32 = 1_000;
 
 /// Dispute window bounds. The admin cannot set a window so short that a seller's delivery claim
 /// pays out before buyers can react, nor so long that payouts and settlement never happen.
@@ -18,9 +16,6 @@ pub const MAX_HORIZON: u64 = 5 * 365 * 86_400;
 pub const MAX_TITLE_LEN: u32 = 256;
 pub const MAX_URI_LEN: u32 = 4_096;
 pub const MAX_EVIDENCE_LEN: u32 = 1_024;
-
-/// Share of the guarantee pool a single default may use, unless the admin sets another cap.
-pub const DEFAULT_POOL_CAP_BPS: u32 = 2_000;
 
 /// ~5s per ledger -> 17_280 ledgers per day.
 pub const DAY_LEDGERS: u32 = 17_280;
@@ -44,6 +39,7 @@ pub enum Error {
     NothingToClaim = 11,
     MissingEvidence = 12,
     AlreadyReleased = 13,
+    /// Reserved: the payout fee was removed in model v2. Kept so codes never shift.
     FeeTooHigh = 14,
     SelfDealing = 15,
     DisputeOpen = 16,
@@ -70,7 +66,7 @@ pub enum Status {
     Completed,
     /// Goal not reached (or cancelled before production). Full refunds.
     Failed,
-    /// Producer did not deliver. Buyers are refunded from escrow + bond + pool.
+    /// Producer did not deliver. Buyers are refunded from escrow, then the bond.
     Defaulted,
 }
 
@@ -209,12 +205,10 @@ pub struct BuyerStats {
 pub struct Config {
     pub admin: Address,
     pub token: Address,
-    pub fee_bps: u32,
+    /// Receives Ayni's share of the yield (`protocol_yield_bps`, 0 by default). Fixed at deploy.
+    pub treasury: Address,
     /// Dispute window new campaigns get. Each campaign keeps its own snapshot.
     pub dispute_window: u64,
-    pub pool: i128,
-    /// Max share of the pool one default may use.
-    pub pool_cap_bps: u32,
     pub campaigns: u64,
 }
 
@@ -223,10 +217,8 @@ pub struct Config {
 pub enum DataKey {
     Admin,
     Token,
-    FeeBps,
+    Treasury,
     DisputeWindow,
-    Pool,
-    PoolCapBps,
     PendingAdmin,
     /// Allowlisted verifier (present = allowed).
     Verifier(Address),

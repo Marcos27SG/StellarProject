@@ -13,9 +13,8 @@
 //!   guarantors (co-op, family, other producers). The bond is slashed to refund buyers on default.
 //! * **Pay on delivery**: the rest of each unit's price is released only when the buyer confirms
 //!   reception (or the seller's delivery claim survives a dispute window).
-//! * **Guarantee pool**: a small fee on every payout funds a pool that tops up refunds on default.
 //! * **Reputation**: completed campaigns, streaks, defaults and ratings live on-chain and unlock
-//!   bigger advances with smaller bonds over time.
+//!   bigger advances over time.
 //!
 //! The same mechanism scales to off-plan real estate ("pre-venta" of apartments): milestones become
 //! construction stages certified by an engineer, like Dubai's and India's escrow regulations.
@@ -51,10 +50,6 @@ fn admin(env: &Env) -> Address {
     env.storage().instance().get(&DataKey::Admin).unwrap()
 }
 
-fn fee_bps(env: &Env) -> u32 {
-    env.storage().instance().get(&DataKey::FeeBps).unwrap_or(0)
-}
-
 fn dispute_window(env: &Env) -> u64 {
     env.storage()
         .instance()
@@ -69,17 +64,6 @@ fn check_window(seconds: u64) -> Result<(), Error> {
     Ok(())
 }
 
-fn pool(env: &Env) -> i128 {
-    env.storage().instance().get(&DataKey::Pool).unwrap_or(0)
-}
-
-fn pool_cap_bps(env: &Env) -> u32 {
-    env.storage()
-        .instance()
-        .get(&DataKey::PoolCapBps)
-        .unwrap_or(DEFAULT_POOL_CAP_BPS)
-}
-
 fn is_allowed_verifier(env: &Env, who: &Address) -> bool {
     let key = DataKey::Verifier(who.clone());
     let allowed: bool = env.storage().persistent().get(&key).unwrap_or(false);
@@ -89,10 +73,6 @@ fn is_allowed_verifier(env: &Env, who: &Address) -> bool {
             .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND);
     }
     allowed
-}
-
-fn set_pool(env: &Env, value: i128) {
-    env.storage().instance().set(&DataKey::Pool, &value);
 }
 
 fn get_campaign(env: &Env, id: u64) -> Result<Campaign, Error> {
@@ -225,22 +205,15 @@ fn tier_for(rep: &Reputation) -> TierInfo {
     }
 }
 
-/// Pays `gross` out of the campaign escrow to the seller. The protocol fee goes to the
-/// guarantee pool. Returns the net amount the seller received.
+/// Pays `gross` out of the campaign escrow to the seller, in full (there is no payout fee).
+/// Returns the amount the seller received.
 fn pay_seller(env: &Env, c: &mut Campaign, gross: i128) -> i128 {
     if gross <= 0 {
         return 0;
     }
-    let fee = gross * fee_bps(env) as i128 / BPS;
-    let net = gross - fee;
     c.escrow -= gross;
-    if fee > 0 {
-        set_pool(env, pool(env) + fee);
-    }
-    if net > 0 {
-        token_client(env).transfer(&env.current_contract_address(), &c.seller, &net);
-    }
-    net
+    token_client(env).transfer(&env.current_contract_address(), &c.seller, &gross);
+    gross
 }
 
 /// Releases the remaining price of `units` delivered to `buyer`.
@@ -284,10 +257,10 @@ fn complete_if_done(env: &Env, c: &mut Campaign) {
 }
 
 fn complete(env: &Env, c: &mut Campaign) {
-    // Rounding dust stays in the protocol as guarantee-pool funds.
+    // Rounding dust left in escrow belongs to the seller: every unit was delivered.
     if c.escrow > 0 {
-        set_pool(env, pool(env) + c.escrow);
-        c.escrow = 0;
+        let dust = c.escrow;
+        pay_seller(env, c, dust);
     }
     let mut rep = get_rep(env, &c.seller);
     rep.completed += 1;
@@ -305,9 +278,8 @@ fn fail(env: &Env, c: &mut Campaign) {
     set_status(env, c, Status::Failed);
 }
 
-/// Producer did not deliver: refund buyers from (1) what is left in escrow, (2) the bond,
-/// (3) the guarantee pool, in that order. One default can use at most `pool_cap_bps` of the
-/// pool, so a single campaign (or a ring of fake buyers) can never empty it.
+/// Producer did not deliver: refund buyers from (1) what is left in escrow, then (2) the bond.
+/// There is no common fund: one campaign's default never touches anyone else's money.
 fn default_campaign(env: &Env, c: &mut Campaign) {
     let undelivered = c.sold - c.delivered;
     let owed = (undelivered as i128) * c.unit_price;
@@ -320,18 +292,9 @@ fn default_campaign(env: &Env, c: &mut Campaign) {
     } else {
         shortfall
     };
-    shortfall -= from_bond;
-    let available_pool = pool(env);
-    let pool_limit = available_pool * pool_cap_bps(env) as i128 / BPS;
-    let from_pool = if pool_limit < shortfall {
-        pool_limit
-    } else {
-        shortfall
-    };
-    set_pool(env, available_pool - from_pool);
 
     c.bond_slashed = from_bond;
-    c.escrow += from_bond + from_pool;
+    c.escrow += from_bond;
     c.refund_per_unit = if undelivered > 0 {
         let per_unit = c.escrow / undelivered as i128;
         if per_unit > c.unit_price {
@@ -365,42 +328,33 @@ fn require_status(c: &Campaign, status: Status) -> Result<(), Error> {
 #[contractimpl]
 impl Despensa {
     /// `token`: settlement asset (USDC Stellar Asset Contract).
-    /// `fee_bps`: protocol fee on payouts to sellers, sent to the guarantee pool.
+    /// `treasury`: receives Ayni's share of the yield, if the admin ever sets one. Fixed for good.
     /// `dispute_window`: seconds a buyer has to dispute a seller's delivery claim
     /// (between `MIN_DISPUTE_WINDOW` and `MAX_DISPUTE_WINDOW`).
-    pub fn __constructor(env: Env, admin: Address, token: Address, fee_bps: u32, dispute_window: u64) {
-        if fee_bps > MAX_FEE_BPS {
-            panic_with_error!(&env, Error::FeeTooHigh);
-        }
+    pub fn __constructor(
+        env: Env,
+        admin: Address,
+        token: Address,
+        treasury: Address,
+        dispute_window: u64,
+    ) {
         if check_window(dispute_window).is_err() {
             panic_with_error!(&env, Error::WindowOutOfRange);
         }
         let s = env.storage().instance();
         s.set(&DataKey::Admin, &admin);
         s.set(&DataKey::Token, &token);
-        s.set(&DataKey::FeeBps, &fee_bps);
+        s.set(&DataKey::Treasury, &treasury);
         s.set(&DataKey::DisputeWindow, &dispute_window);
-        s.set(&DataKey::Pool, &0i128);
-        s.set(&DataKey::PoolCapBps, &DEFAULT_POOL_CAP_BPS);
         s.set(&DataKey::NextId, &0u64);
         bump_instance(&env);
     }
 
     // ----------------------------------------------------------------- admin
     //
-    // What the admin can do is deliberately narrow: tune the fee (capped), the dispute window for
-    // *new* campaigns (bounded), the pool cap, and the verifier allowlist. It can never move
-    // money, change a live campaign, or replace a campaign's verifier.
-
-    pub fn set_fee(env: Env, fee_bps: u32) -> Result<(), Error> {
-        admin(&env).require_auth();
-        if fee_bps > MAX_FEE_BPS {
-            return Err(Error::FeeTooHigh);
-        }
-        env.storage().instance().set(&DataKey::FeeBps, &fee_bps);
-        bump_instance(&env);
-        Ok(())
-    }
+    // What the admin can do is deliberately narrow: the dispute window for *new* campaigns
+    // (bounded) and the verifier allowlist. It can never move money, change a live campaign, or
+    // replace a campaign's verifier.
 
     /// Dispute window for campaigns created from now on. Existing campaigns keep theirs.
     pub fn set_dispute_window(env: Env, seconds: u64) -> Result<(), Error> {
@@ -409,17 +363,6 @@ impl Despensa {
         env.storage()
             .instance()
             .set(&DataKey::DisputeWindow, &seconds);
-        bump_instance(&env);
-        Ok(())
-    }
-
-    /// Max share of the guarantee pool a single default may use (bps, up to 100%).
-    pub fn set_pool_cap(env: Env, bps: u32) -> Result<(), Error> {
-        admin(&env).require_auth();
-        if bps as i128 > BPS {
-            return Err(Error::InvalidInput);
-        }
-        env.storage().instance().set(&DataKey::PoolCapBps, &bps);
         bump_instance(&env);
         Ok(())
     }
@@ -463,18 +406,6 @@ impl Despensa {
         s.remove(&DataKey::PendingAdmin);
         bump_instance(&env);
         AdminChanged { admin: new_admin }.publish(&env);
-        Ok(())
-    }
-
-    /// Anyone (the platform, NGOs, donors) can top up the guarantee pool.
-    pub fn fund_pool(env: Env, from: Address, amount: i128) -> Result<(), Error> {
-        from.require_auth();
-        if amount <= 0 {
-            return Err(Error::InvalidInput);
-        }
-        token_client(&env).transfer(&from, &env.current_contract_address(), &amount);
-        set_pool(&env, pool(&env) + amount);
-        bump_instance(&env);
         Ok(())
     }
 
@@ -998,10 +929,8 @@ impl Despensa {
         Config {
             admin: s.get(&DataKey::Admin).unwrap(),
             token: s.get(&DataKey::Token).unwrap(),
-            fee_bps: s.get(&DataKey::FeeBps).unwrap_or(0),
+            treasury: s.get(&DataKey::Treasury).unwrap(),
             dispute_window: s.get(&DataKey::DisputeWindow).unwrap_or(0),
-            pool: s.get(&DataKey::Pool).unwrap_or(0),
-            pool_cap_bps: pool_cap_bps(&env),
             campaigns: s.get(&DataKey::NextId).unwrap_or(0),
         }
     }
